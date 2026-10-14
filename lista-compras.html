@@ -159,6 +159,13 @@
 
   .btn-icon:active { transform: scale(0.92); }
 
+  .btn-check {
+    background: #d4edda;
+    color: #2d7a4f;
+  }
+
+  .btn-check:hover { background: #c3e6cb; }
+
   .btn-edit {
     background: #fff3cd;
     color: #8a6d2b;
@@ -320,6 +327,7 @@ function renderList() {
 
         </div>
         <div class="item-actions">
+          <button class="btn-icon btn-check" onclick="toggleComplete('${item.id}')" title="No carrinho">✅</button>
           <button class="btn-icon btn-edit" onclick="openEdit('${item.id}')" title="Editar">✏️</button>
           <button class="btn-icon btn-delete" onclick="deleteItem('${item.id}')" title="Excluir">🗑️</button>
         </div>
