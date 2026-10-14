@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🛒 Lista de Compras</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f0f4f8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 12px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
+    width: 100%;
+    text-align: center;
+    font-size: 26px;
+    color: #1a3a5c;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  h1 span { font-size: 28px; }
+
+  /* ── Formulário de adição ── */
+  .add-form {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .add-form input {
+    flex: 1;
+    padding: 14px 16px;
+    border: 2px solid #d0d8e0;
+    border-radius: 12px;
+    font-size: 17px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .add-form input:focus {
+    border-color: #4a9eff;
+  }
+
+  .btn-add {
+    padding: 14px 24px;
+    background: #4a9eff;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-add:hover { background: #3a8eef; }
+
+  /* ── Lista de itens ── */
+  .list-container {
+    width: 100%;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .empty-msg {
+    text-align: center;
+    color: #888;
+    font-size: 15px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    padding: 14px 16px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    transition: transform 0.15s, opacity 0.3s;
+  }
+
+  .item.completed {
+    opacity: 0.55;
+    background: #f9fbfd;
+  }
+
+  .item.completed .item-name { text-decoration: line-through; color: #aaa; }
+
+  .item-icon {
+    font-size: 26px;
+    width: 44px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .item-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-name {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .item-quantity {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 2px;
+  }
+
+  .item-price {
+    font-size: 15px;
+    color: #2d7a4f;
+    font-weight: 600;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-icon:active { transform: scale(0.92); }
+
+  .btn-edit {
+    background: #fff3cd;
+    color: #8a6d2b;
+  }
+
+  .btn-edit:hover { background: #ffe69c; }
+
+  .btn-delete {
+    background: #ffe8e8;
+    color: #d94040;
+  }
+
+  .btn-delete:hover { background: #ffc0c0; }
+
+  /* ── Modal de edição ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn 0.15s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 340px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    animation: slideUp 0.2s ease;
+  }
+
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal h3 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #1a3a5c;
+  }
+
+  .modal label {
+    display: block;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 4px;
+    margin-bottom: 8px;
+  }
+
+  .modal input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #d0d8e0;
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+
+  .modal input:focus { border-color: #4a9eff; }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .btn-cancel {
+    padding: 10px 16px;
+    background: #e0e4ea;
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .btn-save {
+    padding: 10px 16px;
+    background: #4a9eff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .btn-save:hover { background: #3a8eef; }
+</style>
+</head>
+<body>
+
+<h1>🛒 <span>Minhas Compras</span></h1>
+
+<div class="add-form">
+  <input type="text" id="itemName" placeholder="Nome do item..." maxlength="40">
+  <input type="number" id="itemQty" placeholder="Qtd." min="1" style="width: 100px;">
+  <button class="btn-add" onclick="addItem()">Adicionar</button>
+</div>
+
+<div class="list-container" id="listContainer"></div>
+
+<!-- Modal de edição -->
+<div class="modal-overlay" id="editModal" style="display:none;">
+  <div class="modal">
+    <h3>✏️ Editar Item</h3>
+    <label>Nome</label>
+    <input type="text" id="editName">
+    <label>Quantidade</label>
+    <input type="number" id="editQty" min="1">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveEdit()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Dados ──
+const STORAGE_KEY = 'shopping_list_items';
+
+function loadItems() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+function saveItems(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+// ── Render ──
+function renderList() {
+  const container = document.getElementById('listContainer');
+  const items = loadItems();
+  const empty = items.length === 0;
+
+  if (empty) {
+    container.innerHTML = '<div class="empty-msg">📭 Nada para comprar! Adicione algo na lista.</div>';
+    return;
+  }
+
+  let html = '';
+  items.forEach(item => {
+    const isDone = item.completed;
+    const emoji = getEmoji(item.name);
+    html += `
+      <div class="item ${isDone ? 'completed' : ''}" data-id="${item.id}">
+        <span class="item-icon">${emoji}</span>
+        <div class="item-info">
+          <div class="item-name">
+            ${item.completed ? '✅' : '📝'} ${escapeHtml(item.name)}
+          </div>
+          <div class="item-quantity">Qtd: ${item.qty}</div>
+          <div class="item-price">R$ ${item.price.toFixed(2)}</div>
+        </div>
+        <div class="item-actions">
+          <button class="btn-icon btn-edit" onclick="openEdit('${item.id}')" title="Editar">✏️</button>
+          <button class="btn-icon btn-delete" onclick="deleteItem('${item.id}')" title="Excluir">🗑️</button>
+        </div>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function getEmoji(name) {
+  const lower = name.toLowerCase();
+  if (lower.includes('maçã') || lower.includes('banana') || lower.includes('laranja')) return '🍎';
+  if (lower.includes('leite') || lower.includes('café') || lower.includes('leite de soja')) return '🥛';
+  if (lower.includes('pão') || lower.includes('pãezinho')) return '🍞';
+  if (lower.includes('fruta') || lower.includes('verdura')) return '🥕';
+  if (lower.includes('carne') || lower.includes('bife') || lower.includes('frango')) return '🍗';
+  if (lower.includes('leite') || lower.includes('queijo')) return '🧀';
+  if (lower.includes('café') || lower.includes('chocolate')) return '☕';
+  if (lower.includes('água')) return '💧';
+  if (lower.includes('doce') || lower.includes('chocolate')) return '🍫';
+  if (lower.includes('fruta')) return '🍇';
+  return '📦';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ── CRUD ──
+function addItem() {
+  const nameInput = document.getElementById('itemName');
+  const qtyInput = document.getElementById('itemQty');
+  const name = nameInput.value.trim();
+  const qty = parseInt(qtyInput.value) || 1;
+
+  if (!name) return;
+
+  const items = loadItems();
+  const newItem = {
+    id: Date.now().toString(),
+    name,
+    qty,
+    price: parseFloat((0.5 + Math.random() * 3).toFixed(2)), // valor fictício
+    completed: false
+  };
+
+  items.unshift(newItem);
+  saveItems(items);
+  renderList();
+
+  nameInput.value = '';
+  qtyInput.value = '';
+  nameInput.focus();
+}
+
+function deleteItem(id) {
+  let items = loadItems();
+  items = items.filter(item => item.id !== id);
+  saveItems(items);
+  renderList();
+}
+
+function toggleComplete(id) {
+  let items = loadItems();
+  const item = items.find(i => i.id === id);
+  if (item) {
+    item.completed = !item.completed;
+    saveItems(items);
+    renderList();
+  }
+}
+
+// ── Edição (modal) ──
+function openEdit(id) {
+  const items = loadItems();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+
+  document.getElementById('editName').value = item.name;
+  document.getElementById('editQty').value = item.qty;
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function saveEdit() {
+  const name = document.getElementById('editName').value.trim();
+  const qty = parseInt(document.getElementById('editQty').value) || 1;
+
+  if (!name) return;
+
+  let items = loadItems();
+  const item = items.find(i => i.id === '__EDIT_ID__');
+  // O id real vem do dataset, mas como usamos inline, vamos buscar pelo nome
+  const idx = items.findIndex(i => i.name === name && i.qty === qty);
+  if (idx !== -1) {
+    items[idx].name = name;
+    items[idx].qty = qty;
+  }
+  saveItems(items);
+  renderList();
+  closeModal();
+}
+
+// Fix: pass the actual id to saveEdit via dataset
+document.querySelectorAll('.btn-edit').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const itemId = this.closest('.item').dataset.id;
+    document.querySelector('#editName').value = '';
+    document.querySelector('#editQty').value = '';
+    // Store the id for saveEdit
+    window._editId = itemId;
+    document.getElementById('editModal').style.display = 'flex';
+  });
+});
+
+function saveEdit() {
+  const editId = window._editId || '__EDIT_ID__';
+  const name = document.getElementById('editName').value.trim();
+  const qty = parseInt(document.getElementById('editQty').value) || 1;
+
+  if (!name) return;
+
+  let items = loadItems();
+  const idx = items.findIndex(i => i.id === editId);
+  if (idx !== -1) {
+    items[idx].name = name;
+    items[idx].qty = qty;
+  }
+  saveItems(items);
+  renderList();
+  closeModal();
+}
+
+// ── Eventos ──
+document.getElementById('itemName').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addItem();
+});
+
+renderList();
+</script>
+
+</body>
+</html>
