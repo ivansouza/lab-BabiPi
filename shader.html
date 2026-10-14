@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shader Three.js — lab-BabiPi</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+canvas { display: block; }
+</style>
+</head>
+<body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// Parâmetros
+const W = 400;
+const H = 400;
+const TAU = Math.PI * 2;
+
+// Cena, Câmera, Renderizador
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, W / H, 0.1, 1000);
+camera.position.z = 500;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+
+// Luzes
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(ambientLight);
+const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
+pointLight.position.set(100, 100, 100);
+scene.add(pointLight);
+
+// Material das esferas
+const sphereMaterial = new THREE.MeshPhongMaterial({
+  color: 0x38bdf8,
+  emissive: 0x0c1224,
+  shininess: 100
+});
+
+// Variáveis do snippet
+let f = 0;
+const spheres = [];
+
+function createSpheres() {
+  // Limpa esferas anteriores
+  spheres.forEach(s => scene.remove(s));
+  spheres.length = 0;
+
+  for (let j = 0; j < Math.PI; j += Math.PI / 32) {
+    for (let i = 0; i < TAU; i += Math.PI / 512) {
+      const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(3 * Math.abs(Math.cos(i + f)), 16, 16),
+        sphereMaterial
+      );
+
+      // Cálculos do snippet original
+      const t = Math.tan(Math.atan(i));
+      const s = 150 * Math.sin(j + i);
+      const x = Math.sin(t) * s;
+      const y = Math.tan(Math.cos(i + f)) * Math.sin(i + f) * 150;
+      const z = Math.cos(t) * s;
+
+      sphere.position.set(x, y, z);
+      sphere.rotation.y = i + f;
+
+      scene.add(sphere);
+      spheres.push(sphere);
+    }
+  }
+
+  f += Math.PI / 256;
+}
+
+// Cria esferas inicialmente
+createSpheres();
+
+// Animação
+function animate() {
+  requestAnimationFrame(animate);
+
+  // Atualiza a cada alguns frames para efeito visual
+  if (Math.random() > 0.95) {
+    createSpheres();
+  }
+
+  // Rotaciona cena lentamente
+  scene.rotation.y += 0.002;
+  scene.rotation.x += 0.001;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// Responsivo
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+
+</body>
+</html>
