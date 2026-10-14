@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lab-BabiPi — Laboratório</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg: #060816;
+  --bg-soft: #0c1224;
+  --panel: rgba(10, 15, 31, 0.78);
+  --panel-strong: rgba(15, 23, 42, 0.94);
+  --line: rgba(148, 163, 184, 0.14);
+  --text: #e5eefc;
+  --muted: #8b9bb7;
+  --cyan: #38bdf8;
+  --violet: #8b5cf6;
+  --emerald: #34d399;
+  --amber: #f59e0b;
+  --rose: #fb7185;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 30%),
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
+    radial-gradient(circle at bottom center, rgba(52, 211, 153, 0.08), transparent 30%),
+    linear-gradient(180deg, #03050d 0%, #070b17 40%, #060816 100%);
+}
+
+.app-shell {
+  width: min(1200px, calc(100vw - 24px));
+  margin: 24px auto;
+}
+
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.45);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Header -->
+  <header class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+      <span class="text-3xl">🧪</span>
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
+        lab-BabiPi
+      </h1>
+    </div>
+    <p class="text-muted text-sm">Laboratório interativo de Ivan Souza</p>
+  </header>
+
+  <!-- Grid de projetos -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    
+    <!-- Card: Lista de Compras -->
+    <div class="glass card-hover p-6">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">🛒</span>
+          <div>
+            <h2 class="text-lg font-semibold text-white">Lista de Compras</h2>
+            <p class="text-muted text-xs">App web responsivo</p>
+          </div>
+        </div>
+        <span class="badge bg-emerald/10 text-emerald">ativo</span>
+      </div>
+      <p class="text-muted text-sm mb-4">
+        Lista de compras interativa com adicionar, editar, excluir e marcar itens como "no carrinho".
+        Design otimizado para celular.
+      </p>
+      <a href="lista-compras.html" target="_blank" 
+         class="inline-flex items-center gap-2 text-cyan hover:text-cyan-300 transition-colors text-sm font-medium">
+        <i class="fas fa-external-link-alt"></i> Abrir lista de compras
+      </a>
+    </div>
+
+    <!-- Card: Em breve -->
+    <div class="glass card-hover p-6 opacity-60">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">📋</span>
+          <div>
+            <h2 class="text-lg font-semibold text-white">Em breve</h2>
+            <p class="text-muted text-xs">Novos projetos</p>
+          </div>
+        </div>
+        <span class="badge bg-amber/10 text-amber">em desenvolvimento</span>
+      </div>
+      <p class="text-muted text-sm">
+        Novos experiments e ferramentas sendo desenvolvidos.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-12 text-center text-muted text-xs">
+    <p>lab-BabiPi &copy; 2026 — Ivan Souza</p>
+  </footer>
+</div>
+
+</body>
+</html>
