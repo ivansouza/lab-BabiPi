@@ -19,7 +19,7 @@ canvas { display: block; }
 </head>
 <body>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
 // Parâmetros
 const W = 400;
@@ -35,18 +35,22 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(W, H);
 document.body.appendChild(renderer.domElement);
 
-// Luzes
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+// Luzes - múltiplas luzes para melhor visibilidade
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
-const pointLight = new THREE.PointLight(0xffffff, 1, 1000);
-pointLight.position.set(100, 100, 100);
-scene.add(pointLight);
+const pointLight1 = new THREE.PointLight(0x38bdf8, 2, 1000);
+pointLight1.position.set(200, 200, 200);
+scene.add(pointLight1);
+const pointLight2 = new THREE.PointLight(0x8b5cf6, 2, 1000);
+pointLight2.position.set(-200, -200, 200);
+scene.add(pointLight2);
 
-// Material das esferas
+// Material das esferas - cores vibrantes
 const sphereMaterial = new THREE.MeshPhongMaterial({
   color: 0x38bdf8,
-  emissive: 0x0c1224,
-  shininess: 100
+  emissive: 0x38bdf8,
+  emissiveIntensity: 0.5,
+  shininess: 150
 });
 
 // Variáveis do snippet
