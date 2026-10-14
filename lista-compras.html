@@ -14,19 +14,20 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px 12px;
+    padding: 12px 8px;
     -webkit-font-smoothing: antialiased;
   }
 
   h1 {
     width: 100%;
     text-align: center;
-    font-size: 26px;
+    font-size: 22px;
     color: #1a3a5c;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    gap: 6px;
   }
 
   h1 span { font-size: 28px; }
@@ -35,16 +36,16 @@
   .add-form {
     width: 100%;
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 8px;
+    margin-bottom: 16px;
   }
 
   .add-form input {
     flex: 1;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border: 2px solid #d0d8e0;
-    border-radius: 12px;
-    font-size: 17px;
+    border-radius: 10px;
+    font-size: 16px;
     outline: none;
     transition: border-color 0.2s;
   }
@@ -54,12 +55,12 @@
   }
 
   .btn-add {
-    padding: 14px 24px;
+    padding: 12px 18px;
     background: #4a9eff;
     color: white;
     border: none;
-    border-radius: 12px;
-    font-size: 17px;
+    border-radius: 10px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
@@ -71,10 +72,10 @@
   /* ── Lista de itens ── */
   .list-container {
     width: 100%;
-    max-width: 380px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .empty-msg {
@@ -90,11 +91,11 @@
   .item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: white;
-    padding: 14px 16px;
-    border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    padding: 12px 14px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     transition: transform 0.15s, opacity 0.3s;
   }
 
@@ -106,8 +107,8 @@
   .item.completed .item-name { text-decoration: line-through; color: #aaa; }
 
   .item-icon {
-    font-size: 26px;
-    width: 44px;
+    font-size: 24px;
+    width: 36px;
     text-align: center;
     flex-shrink: 0;
   }
@@ -118,18 +119,17 @@
   }
 
   .item-name {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 500;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
 
   .item-quantity {
-    font-size: 14px;
+    font-size: 13px;
     color: #555;
-    margin-bottom: 2px;
   }
 
   .item-price {
@@ -140,17 +140,17 @@
 
   .item-actions {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     flex-shrink: 0;
   }
 
   .btn-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -189,11 +189,11 @@
 
   .modal {
     background: white;
-    border-radius: 16px;
-    padding: 24px;
-    width: 90%;
-    max-width: 340px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    border-radius: 14px;
+    padding: 20px;
+    width: 92%;
+    max-width: 320px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
     animation: slideUp 0.2s ease;
   }
 
@@ -217,37 +217,37 @@
     width: 100%;
     padding: 10px 12px;
     border: 1.5px solid #d0d8e0;
-    border-radius: 8px;
-    font-size: 16px;
+    border-radius: 6px;
+    font-size: 15px;
     outline: none;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
 
   .modal input:focus { border-color: #4a9eff; }
 
   .modal-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     justify-content: flex-end;
   }
 
   .btn-cancel {
-    padding: 10px 16px;
+    padding: 8px 14px;
     background: #e0e4ea;
     color: #333;
     border: none;
-    border-radius: 8px;
-    font-size: 15px;
+    border-radius: 6px;
+    font-size: 14px;
     cursor: pointer;
   }
 
   .btn-save {
-    padding: 10px 16px;
+    padding: 8px 14px;
     background: #4a9eff;
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 15px;
+    border-radius: 6px;
+    font-size: 14px;
     cursor: pointer;
   }
 
@@ -317,7 +317,7 @@ function renderList() {
             ${item.completed ? '✅' : '📝'} ${escapeHtml(item.name)}
           </div>
           <div class="item-quantity">Qtd: ${item.qty}</div>
-          <div class="item-price">R$ ${item.price.toFixed(2)}</div>
+
         </div>
         <div class="item-actions">
           <button class="btn-icon btn-edit" onclick="openEdit('${item.id}')" title="Editar">✏️</button>
@@ -364,7 +364,6 @@ function addItem() {
     id: Date.now().toString(),
     name,
     qty,
-    price: parseFloat((0.5 + Math.random() * 3).toFixed(2)), // valor fictício
     completed: false
   };
 
