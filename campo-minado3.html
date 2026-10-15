@@ -210,7 +210,7 @@
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 transform transition-all" id="settings-modal-content">
             <h2 class="text-2xl font-bold mb-2">IA no navegador</h2>
-            <p class="text-sm text-gray-500 mb-4">O autoplay usa lógica local e consulta o LFM2-350M (Liquid AI, rodando aqui no navegador via Transformers.js; ~294 MB com WebGPU ou ~692 MB em WASM (fp16) na 1ª vez, baixado do Hugging Face) só quando não há jogada certa.</p>
+            <p class="text-sm text-gray-500 mb-4">O autoplay usa lógica local e consulta o LFM2-350M (Liquid AI, rodando aqui no navegador via Transformers.js; ~294 MB com WebGPU ou ~280 MB em WASM (q4) na 1ª vez, baixado do Hugging Face) só quando não há jogada certa.</p>
             <div class="flex flex-wrap gap-2 mb-4">
                 <button id="bev-local-load" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded">Baixar / carregar modelo</button>
                 <button id="bev-local-clear" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded">Apagar cache</button>
@@ -723,7 +723,7 @@
         }
         const MB = (b) => (b / 1048576).toFixed(0);
         const temWebGPU = !!navigator.gpu;
-        const TAMANHO_ESTIMADO = temWebGPU ? '~294 MB (WebGPU q4)' : '~692 MB (WASM fp16)';
+        const TAMANHO_ESTIMADO = temWebGPU ? '~294 MB (WebGPU q4)' : '~280 MB (WASM q4)';
         let usarWasm = false, gpuFalhou = false;
 
         let lfmWorker = null, lfmMsgId = 0, lfmPendentes = new Map();
@@ -755,7 +755,7 @@
         function onProgresso(d) {
             const nome = (b, t) => `${b === 'webgpu' ? 'WebGPU' : 'WASM'} ${t || ''}`.trim();
             if (d.phase === 'start') {
-                mostrarStatus('carregando', d.fromCache ? `💾 Carregando o LFM2 do cache do navegador (${nome(d.backend, d.dtype)})…` : `⬇️ Baixando o LFM2 do Hugging Face (${nome(d.backend, d.dtype)}, só na primeira vez)…`, { progresso: true });
+                mostrarStatus('carregando', d.fromCache ? `💾 Carregando o LFM2 do cache do navegador (${nome(d.backend, d.dtype)})…` : `⬇️ Baixando o LFM2 ${d.proprio ? 'deste site' : 'do Hugging Face'} (${nome(d.backend, d.dtype)}, só na primeira vez)…`, { progresso: true });
                 progBar.style.width = '0%'; progPct.textContent = '0%';
                 progLabel.textContent = d.fromCache ? '💾 Carregando do cache' : '⬇️ Baixando da internet';
                 return;
@@ -769,7 +769,7 @@
 
         function oferecerCPU(motivo) {
             gpuFalhou = true;
-            mostrarStatus('erro', `⚠️ ${motivo} Os chutes usam a célula de menor risco por enquanto. Toque para usar a CPU (WASM, ~692 MB).`, { botao: 'usar CPU (WASM)' });
+            mostrarStatus('erro', `⚠️ ${motivo} Os chutes usam a célula de menor risco por enquanto. Toque para usar a CPU (WASM, ~280 MB, mais lento).`, { botao: 'usar CPU (WASM)' });
         }
         function onGPU(d) {
             if (d.estado === 'perdida') { logDebug(`⚠️ GPU perdida (device lost) ${d.erro || ''}`, true); oferecerCPU('A GPU (WebGPU) parou de responder.'); }
@@ -785,9 +785,9 @@
         async function verificarBev() {
             try {
                 const st = await chamarWorker('status');
-                const algum = st.cached[temWebGPU ? 'q4' : 'fp16'];
+                const algum = st.cached[temWebGPU ? 'q4' : 'q4wasm'];
                 if (algum) carregarBevLocal().catch(() => {});
-                else mostrarStatus('aviso', `📦 É preciso baixar o modelo LFM2-350M (${TAMANHO_ESTIMADO}, do Hugging Face) para a IA chutar quando não houver jogada certa.`, { botao: 'Baixar' });
+                else mostrarStatus('aviso', `📦 É preciso baixar o modelo LFM2-350M (${TAMANHO_ESTIMADO}) para a IA chutar quando não houver jogada certa.`, { botao: 'Baixar' });
             } catch (e) {
                 mostrarStatus('erro', `❌ Erro ao verificar o modelo: ${e.message}`, { botao: 'Tentar de novo' });
             }
@@ -826,7 +826,7 @@
             if (typeof caches !== 'undefined') {
                 for (const n of await caches.keys()) {
                     const c = await caches.open(n);
-                    for (const req of await c.keys()) if (req.url.includes('LFM2-350M-ONNX')) await c.delete(req);
+                    for (const req of await c.keys()) if (req.url.includes('LFM2-350M-ONNX') || req.url.includes('lfm2-350m-wasm')) await c.delete(req);
                 }
             }
             settingsModal.classList.add('hidden');
@@ -846,7 +846,7 @@
             if (!lfmPronto) {
                 if (!lfmCarregando) {
                     const st = await chamarWorker('status');
-                    if (!(st.cached.q4 || st.cached.fp16)) {
+                    if (!(st.cached.q4 || st.cached.q4wasm)) {
                         mostrarStatus('aviso', `📦 O autoplay precisa do LFM2: baixe o modelo (${TAMANHO_ESTIMADO}) e ligue o autoplay de novo.`, { botao: 'Baixar' });
                         throw new Error('Modelo LFM2 ainda não baixado');
                     }

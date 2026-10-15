@@ -2,6 +2,10 @@
 import { AutoTokenizer, AutoModelForCausalLM, Tensor, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1';
 const MODEL_ID = 'onnx-community/LFM2-350M-ONNX';
 const LETRAS = 'ABCDEFGH'.split('');
+// Versão WASM própria (no repo): o q4 original usa GatherBlockQuantized, que o WASM não tem;
+// aqui o embedding q4 foi reescrito com Gather/BitwiseAnd/BitShift/Mul (resultado idêntico).
+const WASM_MODEL = { id: 'lfm2-350m-wasm', host: new URL('./', self.location.href).href, chunks: 4 };
+const HF_HOST = env.remoteHost, HF_TEMPLATE = env.remotePathTemplate;
 let tok = null, model = null, backend = null, letraIds = null, gpuPerdida = false;
 env.allowLocalModels = false;
 env.useBrowserCache = true;
@@ -27,6 +31,7 @@ async function cacheStatus() {
   for (const n of names) {
     const c = await caches.open(n);
     for (const req of await c.keys()) {
+      if (req.url.includes('lfm2-350m-wasm/onnx/model_q4.onnx_data_3')) { cached.q4wasm = true; continue; }
       if (!req.url.includes('LFM2-350M-ONNX')) continue;
       const m = req.url.match(/onnx\/model_(q4f16|q4|quantized|fp16)\.onnx_data/);
       if (m) cached[m[1]] = true;
@@ -48,20 +53,22 @@ self.onmessage = async ({ data }) => {
       if (self.navigator && navigator.gpu && !data.forceWasm) {
         try { if (await navigator.gpu.requestAdapter()) tentativas.push({ device: 'webgpu', dtype: 'q4' }); } catch (e) {}
       }
-      // q4 e q8 usam GatherBlockQuantized, que o WASM do onnxruntime-web não implementa: no WASM vai direto para fp16.
-      // Se havia WebGPU e ela falhou, NÃO baixa os ~692 MB do WASM sozinho: a página oferece o botão "usar CPU (WASM)".
-      if (!tentativas.length) tentativas.push({ device: 'wasm', dtype: 'fp16' });
+      // Se havia WebGPU e ela falhou, NÃO troca sozinho para WASM: a página oferece o botão "usar CPU (WASM)".
+      if (!tentativas.length) tentativas.push({ device: 'wasm', dtype: 'q4', proprio: true });
       if (model) { try { await model.dispose(); } catch (_) {} model = null; }
       gpuPerdida = false;
       const erros = [];
       for (const t of tentativas) {
-        const arquivo = t.dtype === 'q8' ? 'quantized' : t.dtype;
+        const arquivo = t.proprio ? 'q4wasm' : t.dtype === 'q8' ? 'quantized' : t.dtype;
         const files = new Map();
         const doCache = !!cached[arquivo];
-        postMessage({ type: 'progress', phase: 'start', backend: t.device, dtype: t.dtype, fromCache: doCache });
+        postMessage({ type: 'progress', phase: 'start', backend: t.device, dtype: t.dtype, fromCache: doCache, proprio: !!t.proprio });
         try {
-          model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
+          if (t.proprio) { env.remoteHost = WASM_MODEL.host; env.remotePathTemplate = '{model}/'; }
+          else { env.remoteHost = HF_HOST; env.remotePathTemplate = HF_TEMPLATE; }
+          model = await AutoModelForCausalLM.from_pretrained(t.proprio ? WASM_MODEL.id : MODEL_ID, {
             device: t.device, dtype: t.dtype,
+            ...(t.proprio ? { use_external_data_format: WASM_MODEL.chunks } : {}),
             progress_callback: (p) => {
               if (p.status !== 'progress' || !p.total) return;
               files.set(p.file, { loaded: p.loaded, total: p.total });
@@ -121,7 +128,12 @@ self.onmessage = async ({ data }) => {
       const logZ = mx + Math.log(z);
       const logprobs = opcoes.map((_, i) => Number(row[letraIds[i]]) - logZ);
       let topId = 0; for (let i = 1; i < V; i++) if (Number(row[i]) > Number(row[topId])) topId = i;
-      postMessage({ id, ok: true, result: { logprobs, top: tok.decode([topId]), tokens: T, ms: Math.round(performance.now() - t0) } });
+      // Teste de sanidade: logits NaN/infinitos ou <|pad|> no topo = GPU devolvendo lixo
+      const topTok = tok.decode([topId]);
+      if (!Number.isFinite(logZ) || topTok === '<|pad|>' || topId === tok.pad_token_id) {
+        throw Object.assign(new Error(`saída inválida do modelo (top="${topTok}", logZ=${logZ})`), { webgpu: backend && backend.device === 'webgpu' });
+      }
+      postMessage({ id, ok: true, result: { logprobs, top: topTok, tokens: T, ms: Math.round(performance.now() - t0) } });
     }
   } catch (e) {
     postMessage({ id, ok: false, error: String(e && e.message || e), webgpu: !!(e && e.webgpu) || (backend && backend.device === 'webgpu' && type === 'decide') });
