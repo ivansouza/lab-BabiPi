@@ -31,6 +31,7 @@ async function fetchCached(urls, cacheName, onBytes) {
   const parts = [];
   for (const url of urls) {
     let resp = cache ? await cache.match(url) : null;
+    const fromCache = !!resp;
     if (!resp) {
       const net = await fetch(url);
       if (!net.ok) throw new Error(`HTTP ${net.status} em ${url}`);
@@ -42,7 +43,7 @@ async function fetchCached(urls, cacheName, onBytes) {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value); n += value.length; onBytes && onBytes(value.length);
+      chunks.push(value); n += value.length; onBytes && onBytes(value.length, fromCache);
     }
     const buf = new Uint8Array(n); let o = 0;
     for (const c of chunks) { buf.set(c, o); o += c.length; }
@@ -56,13 +57,27 @@ async function fetchCached(urls, cacheName, onBytes) {
 }
 
 export class BevWeb {
+  // Verifica se todos os arquivos do modelo já estão na Cache API
+  static async cacheStatus({ base, cacheName = "bev-web-v1" }) {
+    base = base.replace(/\/+$/, "") + "/";
+    const manifest = await (await fetch(base + "manifest.json", { cache: "no-cache" })).json();
+    const total = manifest.files.reduce((a, f) => a + f.size, 0);
+    if (typeof caches === "undefined") return { cached: false, total };
+    const cache = await caches.open(cacheName);
+    for (const f of manifest.files) {
+      const urls = f.parts ? f.parts.map((p) => base + p) : [base + f.name];
+      for (const u of urls) if (!(await cache.match(u + "?v=" + f.sha.slice(0, 12)))) return { cached: false, total };
+    }
+    return { cached: true, total };
+  }
+
   // base: URL da pasta com manifest.json; ort/Tokenizer: módulos já importados
   static async load({ base, ort, Tokenizer, onProgress, executionProviders, cacheName = "bev-web-v1" }) {
     base = base.replace(/\/+$/, "") + "/";
     const manifest = await (await fetch(base + "manifest.json", { cache: "no-cache" })).json();
     const total = manifest.files.reduce((a, f) => a + f.size, 0);
     let got = 0;
-    const tick = (n) => { got += n; onProgress && onProgress(got, total); };
+    const tick = (n, fromCache) => { got += n; onProgress && onProgress(got, total, fromCache); };
     const file = async (name) => {
       const f = manifest.files.find((x) => x.name === name);
       const urls = f.parts ? f.parts.map((p) => base + p) : [base + name];
