@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Campo Minado 3 · LFM2 no navegador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body {
+            background-color: #f3f4f6;
+            touch-action: manipulation; /* Previne zoom duplo no mobile */
+        }
+
+        .digital-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .game-board {
+            background-color: #bdbdbd;
+            border-top: 4px solid #fff;
+            border-left: 4px solid #fff;
+            border-bottom: 4px solid #7b7b7b;
+            border-right: 4px solid #7b7b7b;
+            padding: 8px;
+        }
+
+        .game-header {
+            border-top: 3px solid #7b7b7b;
+            border-left: 3px solid #7b7b7b;
+            border-bottom: 3px solid #fff;
+            border-right: 3px solid #fff;
+            background-color: #bdbdbd;
+        }
+
+        .grid-container {
+            border-top: 3px solid #7b7b7b;
+            border-left: 3px solid #7b7b7b;
+            border-bottom: 3px solid #fff;
+            border-right: 3px solid #fff;
+        }
+
+        .cell {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.125rem;
+            cursor: pointer;
+            user-select: none;
+            background-color: #bdbdbd;
+        }
+
+        .cell-hidden {
+            border-top: 3px solid #fff;
+            border-left: 3px solid #fff;
+            border-bottom: 3px solid #7b7b7b;
+            border-right: 3px solid #7b7b7b;
+        }
+
+        .cell-hidden:active {
+            border: 1px solid #7b7b7b;
+            background-color: #e5e7eb;
+        }
+
+        .cell-revealed {
+            border: 1px solid #7b7b7b;
+            background-color: #e5e7eb;
+        }
+
+        .cell-mine {
+            background-color: #ef4444; /* Vermelho quando explode */
+        }
+
+        /* Cores dos números clássicos */
+        .color-1 { color: #2563eb; } /* Azul */
+        .color-2 { color: #16a34a; } /* Verde */
+        .color-3 { color: #dc2626; } /* Vermelho */
+        .color-4 { color: #1e3a8a; } /* Azul escuro */
+        .color-5 { color: #7f1d1d; } /* Marrom/Vermelho escuro */
+        .color-6 { color: #0ea5e9; } /* Ciano */
+        .color-7 { color: #000000; } /* Preto */
+        .color-8 { color: #4b5563; } /* Cinza */
+
+        .btn-face {
+            width: 40px;
+            height: 40px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #bdbdbd;
+            border-top: 3px solid #fff;
+            border-left: 3px solid #fff;
+            border-bottom: 3px solid #7b7b7b;
+            border-right: 3px solid #7b7b7b;
+            cursor: pointer;
+        }
+        .btn-face:active {
+            border-top: 3px solid #7b7b7b;
+            border-left: 3px solid #7b7b7b;
+            border-bottom: 3px solid #fff;
+            border-right: 3px solid #fff;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full flex flex-col items-center">
+        <h1 class="text-3xl font-bold mb-1 text-gray-800 drop-shadow-sm">Campo Minado 3</h1>
+        <p class="text-sm text-gray-500 mb-4">Autoplay: lógica local + LFM2-350M no navegador nos chutes</p>
+        
+        <!-- Seleção de Dificuldade e Modo (Mobile) -->
+        <div class="w-full flex justify-between items-center mb-4 gap-2">
+            <select id="difficulty" class="bg-white border border-gray-300 text-gray-700 py-1 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="easy">Fácil (9x9, 10 minas)</option>
+                <option value="medium">Médio (12x12, 25 minas)</option>
+                <option value="hard">Difícil (16x16, 40 minas)</option>
+            </select>
+            
+            <button id="mode-toggle" class="bg-blue-100 border border-blue-400 text-blue-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors">
+                <span>⛏️ Cavar</span>
+            </button>
+        </div>
+
+        <!-- Novos botões de Autoplay e Configurações -->
+        <div class="w-full flex justify-between items-center mb-4 gap-2">
+            <button id="settings-btn" class="bg-gray-200 border border-gray-400 text-gray-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors hover:bg-gray-300">
+                <span>⚙️ IA</span>
+            </button>
+            <button id="debug-toggle-btn" class="bg-gray-200 border border-gray-400 text-gray-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors hover:bg-gray-300">
+                <span>🐞 Log</span>
+            </button>
+            <button id="autoplay-btn" class="bg-purple-100 border border-purple-400 text-purple-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center justify-center gap-1 transition-colors hover:bg-purple-200 flex-1">
+                <span id="autoplay-text">🤖 Autoplay (Off)</span>
+            </button>
+        </div>
+
+        <!-- Status do LFM2 (IA no navegador) -->
+        <div id="bev-status" class="w-full max-w-md mb-4 rounded border px-3 py-2 text-sm bg-gray-100 border-gray-300 text-gray-800">
+            <div class="flex items-center gap-2">
+                <span id="bev-status-text" class="flex-1">Verificando o modelo LFM2…</span>
+                <button id="bev-status-btn" class="hidden bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded">Baixar</button>
+            </div>
+            <div id="bev-progress" class="hidden mt-2">
+                <div class="flex justify-between text-xs text-gray-600 mb-1"><span id="bev-progress-label"></span><span id="bev-progress-pct">0%</span></div>
+                <div class="w-full bg-gray-300 rounded h-2"><div id="bev-progress-bar" class="bg-purple-600 h-2 rounded" style="width:0%"></div></div>
+            </div>
+            <div id="bev-timer" class="hidden mt-1 font-mono font-semibold"></div>
+        </div>
+
+        <!-- Placa do Jogo -->        <!-- Placa do Jogo -->
+        <div class="game-board rounded-sm shadow-2xl inline-block">
+            <!-- Cabeçalho (Contador, Rosto, Tempo) -->
+            <div class="game-header p-2 mb-3 flex justify-between items-center h-16">
+                <!-- Contador de Minas -->
+                <div class="bg-black text-red-500 digital-font text-3xl px-2 py-1 rounded border-2 border-gray-600 border-t-gray-800 border-l-gray-800 tracking-wider w-20 text-center" id="mine-count">
+                    010
+                </div>
+
+                <!-- Botão de Reiniciar (Rosto) -->
+                <button id="reset-btn" class="btn-face">
+                    😃
+                </button>
+
+                <!-- Cronômetro -->
+                <div class="bg-black text-red-500 digital-font text-3xl px-2 py-1 rounded border-2 border-gray-600 border-t-gray-800 border-l-gray-800 tracking-wider w-20 text-center" id="timer">
+                    000
+                </div>
+            </div>
+
+            <!-- Grade -->
+            <div class="grid-container bg-gray-300" id="grid">
+                <!-- Células geradas via JS -->
+            </div>
+        </div>
+        
+        <p class="mt-6 text-sm text-gray-500 text-center">
+            <strong>Dica:</strong> No computador, use o botão direito para colocar bandeiras. No celular, use o botão "Cavar/Bandeira" acima do tabuleiro.
+        </p>
+
+        <!-- Painel de Depuração -->
+        <div id="debug-panel" class="hidden w-full max-w-md mt-4 bg-black text-green-400 font-mono text-xs rounded shadow-inner h-48 flex flex-col border border-gray-600">
+            <div class="flex justify-between items-center bg-gray-800 px-2 py-1 border-b border-gray-600">
+                <span class="text-gray-300 font-semibold tracking-wider">Terminal Log</span>
+                <button id="copy-log-btn" class="text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition-colors flex items-center gap-1 shadow">
+                    📋 Copiar
+                </button>
+            </div>
+            <div id="debug-log" class="p-2 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Fim de Jogo -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full mx-4 transform transition-all scale-95 opacity-0" id="modal-content">
+            <h2 id="modal-title" class="text-2xl font-bold mb-2">Fim de Jogo</h2>
+            <p id="modal-message" class="text-gray-600 mb-6">Você perdeu!</p>
+            <button onclick="initGame()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full w-full transition-colors shadow-md">
+                Jogar Novamente
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Configurações da IA -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 transform transition-all" id="settings-modal-content">
+            <h2 class="text-2xl font-bold mb-2">IA no navegador</h2>
+            <p class="text-sm text-gray-500 mb-4">O autoplay usa lógica local e consulta o LFM2-350M (Liquid AI, rodando aqui no navegador via Transformers.js; ~255 MB com WebGPU ou ~692 MB em WASM (fp16) na 1ª vez, baixado do Hugging Face) só quando não há jogada certa.</p>
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button id="bev-local-load" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded">Baixar / carregar modelo</button>
+                <button id="bev-local-clear" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded">Apagar cache</button>
+            </div>
+            <div class="flex justify-end">
+                <button id="settings-cancel" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações e Estado do Jogo
+        const config = {
+            easy: { rows: 9, cols: 9, mines: 10 },
+            medium: { rows: 12, cols: 12, mines: 25 },
+            hard: { rows: 16, cols: 16, mines: 40 }
+        };
+
+        let rows, cols, totalMines;
+        let board = [];
+        let minesLeft = 0;
+        let cellsRevealed = 0;
+        let isGameOver = false;
+        let isFirstClick = true;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let flagMode = false; // Para mobile (Cavar vs Bandeira)
+        
+        let isAutoplayRunning = false;
+        let autoplayTimeout = null;
+
+        // Elementos do DOM
+        const gridElement = document.getElementById('grid');
+        const mineCountElement = document.getElementById('mine-count');
+        const timerElement = document.getElementById('timer');
+        const resetBtn = document.getElementById('reset-btn');
+        const difficultySelect = document.getElementById('difficulty');
+        const modeToggleBtn = document.getElementById('mode-toggle');
+        
+        const modal = document.getElementById('game-over-modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+
+        // Novos Elementos
+        const settingsBtn = document.getElementById('settings-btn');
+        const debugToggleBtn = document.getElementById('debug-toggle-btn');
+        const debugPanel = document.getElementById('debug-panel');
+        const debugLog = document.getElementById('debug-log');
+        const copyLogBtn = document.getElementById('copy-log-btn');
+        const autoplayBtn = document.getElementById('autoplay-btn');
+        const autoplayText = document.getElementById('autoplay-text');
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsCancel = document.getElementById('settings-cancel');
+
+        // Inicialização
+        function initGame() {
+            // Parar timer e esconder modal
+            stopTimer();
+            hideModal();
+            stopAutoplay();
+
+            // Obter dificuldade
+            const diff = difficultySelect.value;
+            rows = config[diff].rows;
+            cols = config[diff].cols;
+            totalMines = config[diff].mines;
+
+            // Resetar variáveis
+            board = [];
+            minesLeft = totalMines;
+            cellsRevealed = 0;
+            isGameOver = false;
+            isFirstClick = true;
+            secondsElapsed = 0;
+            
+            updateDisplay();
+            resetBtn.textContent = '😃';
+
+            // Configurar Grid CSS
+            gridElement.style.display = 'grid';
+            gridElement.style.gridTemplateColumns = `repeat(${cols}, max-content)`;
+            gridElement.innerHTML = ''; // Limpar grade antiga
+
+            // Criar estrutura de dados e elementos DOM
+            for (let r = 0; r < rows; r++) {
+                let rowArray = [];
+                for (let c = 0; c < cols; c++) {
+                    // Estrutura de dados
+                    let cellData = {
+                        r: r,
+                        c: c,
+                        isMine: false,
+                        isRevealed: false,
+                        isFlagged: false,
+                        neighborMines: 0
+                    };
+                    rowArray.push(cellData);
+
+                    // Elemento DOM
+                    const cellEl = document.createElement('div');
+                    cellEl.classList.add('cell', 'cell-hidden');
+                    cellEl.dataset.r = r;
+                    cellEl.dataset.c = c;
+
+                    // Eventos
+                    cellEl.addEventListener('click', (e) => handleLeftClick(r, c));
+                    cellEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault(); // Previne menu padrão
+                        handleRightClick(r, c);
+                    });
+
+                    // Efeito de susto no rosto ao clicar (opcional)
+                    cellEl.addEventListener('mousedown', (e) => {
+                        if (!isGameOver && e.button === 0 && !cellData.isRevealed) resetBtn.textContent = '😮';
+                    });
+                    cellEl.addEventListener('mouseup', () => {
+                        if (!isGameOver) resetBtn.textContent = '😃';
+                    });
+                    cellEl.addEventListener('mouseleave', () => {
+                        if (!isGameOver) resetBtn.textContent = '😃';
+                    });
+
+                    gridElement.appendChild(cellEl);
+                }
+                board.push(rowArray);
+            }
+        }
+
+        // Posicionar minas após o primeiro clique (garante que o primeiro clique nunca é mina)
+        function placeMines(firstR, firstC) {
+            let minesPlaced = 0;
+            while (minesPlaced < totalMines) {
+                let r = Math.floor(Math.random() * rows);
+                let c = Math.floor(Math.random() * cols);
+                
+                // Não colocar na posição do primeiro clique nem se já for mina
+                // Para ser mais amigável, também podemos evitar os adjacentes do primeiro clique, 
+                // mas para manter simples, evitamos apenas o próprio quadrado clicado.
+                if (!board[r][c].isMine && (r !== firstR || c !== firstC)) {
+                    board[r][c].isMine = true;
+                    minesPlaced++;
+                }
+            }
+            calculateNeighbors();
+        }
+
+        // Calcular números vizinhos
+        function calculateNeighbors() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (!board[r][c].isMine) {
+                        let count = 0;
+                        // Checar 8 direções
+                        for (let i = -1; i <= 1; i++) {
+                            for (let j = -1; j <= 1; j++) {
+                                let nr = r + i;
+                                let nc = c + j;
+                                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].isMine) {
+                                    count++;
+                                }
+                            }
+                        }
+                        board[r][c].neighborMines = count;
+                    }
+                }
+            }
+        }
+
+        // Interação: Clique Esquerdo (Revelar)
+        function handleLeftClick(r, c) {
+            if (isGameOver) return;
+            let cell = board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            // Se modo bandeira mobile estiver ativo, agir como clique direito
+            if (flagMode) {
+                handleRightClick(r, c);
+                return;
+            }
+
+            if (isFirstClick) {
+                isFirstClick = false;
+                placeMines(r, c);
+                startTimer();
+            }
+
+            if (cell.isMine) {
+                gameOver(false, r, c);
+            } else {
+                revealCell(r, c);
+                checkWinCondition();
+            }
+        }
+
+        // Interação: Clique Direito / Modo Bandeira (Sinalizar)
+        function handleRightClick(r, c) {
+            if (isGameOver) return;
+            let cell = board[r][c];
+            if (cell.isRevealed) return;
+
+            // Se é o primeiro clique e o usuário já está botando bandeira, iniciar timer
+            if (isFirstClick) {
+                isFirstClick = false;
+                // Coloca minas em local seguro genérico (já que ele não revelou nada)
+                placeMines(-1, -1); 
+                startTimer();
+            }
+
+            cell.isFlagged = !cell.isFlagged;
+            minesLeft += cell.isFlagged ? -1 : 1;
+            
+            updateDisplay();
+            updateCellDOM(r, c);
+        }
+
+        // Lógica de Revelação (Flood Fill para áreas vazias)
+        function revealCell(r, c) {
+            let cell = board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            cell.isRevealed = true;
+            cellsRevealed++;
+            updateCellDOM(r, c);
+
+            // Se não tem minas vizinhas, revelar adjacentes recursivamente
+            if (cell.neighborMines === 0) {
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        let nr = r + i;
+                        let nc = c + j;
+                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                            revealCell(nr, nc);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Atualizar o visual de uma célula específica
+        function updateCellDOM(r, c) {
+            let cell = board[r][c];
+            // Encontrar o elemento no DOM (calculando o index)
+            let index = r * cols + c;
+            let el = gridElement.children[index];
+
+            if (cell.isRevealed) {
+                el.classList.remove('cell-hidden');
+                el.classList.add('cell-revealed');
+                
+                if (cell.isMine) {
+                    el.classList.add('cell-mine');
+                    el.textContent = '💣';
+                } else if (cell.neighborMines > 0) {
+                    el.textContent = cell.neighborMines;
+                    el.classList.add(`color-${cell.neighborMines}`);
+                } else {
+                    el.textContent = '';
+                }
+            } else {
+                el.classList.remove('cell-revealed', 'cell-mine');
+                el.classList.add('cell-hidden');
+                // Limpar cores antigas
+                for(let i=1; i<=8; i++) el.classList.remove(`color-${i}`);
+                
+                if (cell.isFlagged) {
+                    el.textContent = '🚩';
+                } else {
+                    el.textContent = '';
+                }
+            }
+        }
+
+        // Fim de Jogo (Vitória ou Derrota)
+        function gameOver(isWin, explodedR = -1, explodedC = -1) {
+            isGameOver = true;
+            stopTimer();
+            stopAutoplay();
+
+            if (isWin) {
+                resetBtn.textContent = '😎';
+                // Marcar as minas restantes com bandeiras
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let cell = board[r][c];
+                        if (cell.isMine && !cell.isFlagged) {
+                            cell.isFlagged = true;
+                            updateCellDOM(r, c);
+                        }
+                    }
+                }
+                minesLeft = 0;
+                updateDisplay();
+                showModal("Vitória!", "Parabéns, você limpou o campo minado!", "text-green-600");
+            } else {
+                resetBtn.textContent = '😵';
+                // Revelar todas as minas
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let cell = board[r][c];
+                        if (cell.isMine) {
+                            // Se era mina e não estava com bandeira, revelar
+                            cell.isRevealed = true;
+                            updateCellDOM(r, c);
+                            // Destacar a mina que explodiu
+                            if (r === explodedR && c === explodedC) {
+                                let el = gridElement.children[r * cols + c];
+                                el.classList.add('bg-red-500'); 
+                            }
+                        } else if (!cell.isMine && cell.isFlagged) {
+                            // Bandeira errada
+                            let el = gridElement.children[r * cols + c];
+                            el.innerHTML = '<span class="relative">💣<span class="absolute inset-0 flex items-center justify-center text-red-500 text-2xl font-bold">❌</span></span>';
+                        }
+                    }
+                }
+                showModal("Fim de Jogo", "Você pisou em uma mina!", "text-red-600");
+            }
+        }
+
+        function checkWinCondition() {
+            if (cellsRevealed === (rows * cols) - totalMines) {
+                gameOver(true);
+            }
+        }
+
+        // Utilidades de Display e Tempo
+        function updateDisplay() {
+            // Formatar contador de minas para 3 dígitos
+            let mCount = minesLeft < 0 ? '-' + Math.abs(minesLeft).toString().padStart(2, '0') : minesLeft.toString().padStart(3, '0');
+            mineCountElement.textContent = mCount;
+            
+            // Formatar timer para 3 dígitos
+            timerElement.textContent = Math.min(secondsElapsed, 999).toString().padStart(3, '0');
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                updateDisplay();
+                if (secondsElapsed >= 999) stopTimer(); // Cap em 999
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        // Alternância de Modo (Mobile)
+        modeToggleBtn.addEventListener('click', () => {
+            flagMode = !flagMode;
+            if (flagMode) {
+                modeToggleBtn.innerHTML = '<span>🚩 Bandeira</span>';
+                modeToggleBtn.classList.replace('bg-blue-100', 'bg-red-100');
+                modeToggleBtn.classList.replace('border-blue-400', 'border-red-400');
+                modeToggleBtn.classList.replace('text-blue-800', 'text-red-800');
+            } else {
+                modeToggleBtn.innerHTML = '<span>⛏️ Cavar</span>';
+                modeToggleBtn.classList.replace('bg-red-100', 'bg-blue-100');
+                modeToggleBtn.classList.replace('border-red-400', 'border-blue-400');
+                modeToggleBtn.classList.replace('text-red-800', 'text-blue-800');
+            }
+        });
+
+        // Eventos Globais
+        resetBtn.addEventListener('click', initGame);
+        difficultySelect.addEventListener('change', initGame);
+
+        // Funções do Modal
+        function showModal(title, msg, titleColorClass) {
+            setTimeout(() => {
+                modalTitle.textContent = title;
+                modalTitle.className = `text-3xl font-bold mb-2 ${titleColorClass}`;
+                modalMessage.textContent = msg;
+                modal.classList.remove('hidden');
+                // Pequeno delay para animação css
+                requestAnimationFrame(() => {
+                    modalContent.classList.remove('scale-95', 'opacity-0');
+                    modalContent.classList.add('scale-100', 'opacity-100');
+                });
+            }, 500); // Meio segundo de atraso para o jogador ver a explosão
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+        }
+
+        // --- INTEGRAÇÃO COM O LFM2-350M (rodando no navegador) ---
+
+        // Funções de Depuração (Log)
+        debugToggleBtn.addEventListener('click', () => {
+            debugPanel.classList.toggle('hidden');
+        });
+
+        copyLogBtn.addEventListener('click', () => {
+            const textToCopy = debugLog.innerText;
+            if (!textToCopy) return;
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            tempTextArea.style.position = "fixed";
+            tempTextArea.style.left = "-9999px";
+            tempTextArea.style.top = "0";
+            document.body.appendChild(tempTextArea);
+            tempTextArea.focus();
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                const originalHTML = copyLogBtn.innerHTML;
+                copyLogBtn.innerHTML = '✅ Copiado!';
+                copyLogBtn.classList.replace('text-gray-300', 'text-green-400');
+                setTimeout(() => {
+                    copyLogBtn.innerHTML = originalHTML;
+                    copyLogBtn.classList.replace('text-green-400', 'text-gray-300');
+                }, 2000);
+            } catch (err) {
+                console.error('Erro ao copiar log:', err);
+                copyLogBtn.innerHTML = '❌ Erro';
+            }
+            document.body.removeChild(tempTextArea);
+        });
+
+        function logDebug(message, isError = false) {
+            const time = new Date().toLocaleTimeString();
+            const msgDiv = document.createElement('div');
+            msgDiv.textContent = `[${time}] ${message}`;
+            msgDiv.className = isError ? 'text-red-400 font-bold mb-1' : 'mb-1 text-green-400';
+            debugLog.appendChild(msgDiv);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        function abrirConfig() { settingsModal.classList.remove('hidden'); }
+        settingsBtn.addEventListener('click', abrirConfig);
+        settingsCancel.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+        // Controle de Estado do Autoplay
+        function stopAutoplay() {
+            isAutoplayRunning = false;
+            if (autoplayTimeout) clearTimeout(autoplayTimeout);
+            autoplayBtn.classList.replace('bg-red-100', 'bg-purple-100');
+            autoplayBtn.classList.replace('border-red-400', 'border-purple-400');
+            autoplayBtn.classList.replace('text-red-800', 'text-purple-800');
+            autoplayText.textContent = '🤖 Autoplay (Off)';
+        }
+
+        autoplayBtn.addEventListener('click', () => {
+            if (isGameOver) return;
+            isAutoplayRunning = !isAutoplayRunning;
+            if (isAutoplayRunning) {
+                autoplayBtn.classList.replace('bg-purple-100', 'bg-red-100');
+                autoplayBtn.classList.replace('border-purple-400', 'border-red-400');
+                autoplayBtn.classList.replace('text-purple-800', 'text-red-800');
+                autoplayText.textContent = '⏹️ Parar Autoplay';
+                runAutoplayLoop();
+            } else {
+                stopAutoplay();
+            }
+        });
+
+        async function runAutoplayLoop() {
+            if (!isAutoplayRunning || isGameOver) { stopAutoplay(); return; }
+            let usouBev = false;
+            try {
+                autoplayText.textContent = '🤖 Pensando...';
+                usouBev = await playAIMove();
+                if (isAutoplayRunning && !isGameOver) {
+                    autoplayText.textContent = '⏹️ Parar Autoplay';
+                    // Pequena pausa entre jogadas para dar para acompanhar
+                    autoplayTimeout = setTimeout(runAutoplayLoop, usouBev ? 400 : 300);
+                } else {
+                    stopAutoplay();
+                }
+            } catch (error) {
+                console.error('Erro na IA:', error);
+                logDebug(`Erro na IA: ${error.message}`, true);
+                debugPanel.classList.remove('hidden');
+                stopAutoplay();
+                autoplayText.textContent = 'Erro de IA';
+                setTimeout(() => { if (!isGameOver && !isAutoplayRunning) autoplayText.textContent = '🤖 Autoplay (Off)'; }, 4000);
+            }
+        }
+
+        // --- LFM2 no navegador: Web Worker (Transformers.js, modelo do Hugging Face) ---
+        const statusBox = document.getElementById('bev-status');
+        const statusText = document.getElementById('bev-status-text');
+        const statusBtn = document.getElementById('bev-status-btn');
+        const progBox = document.getElementById('bev-progress');
+        const progBar = document.getElementById('bev-progress-bar');
+        const progPct = document.getElementById('bev-progress-pct');
+        const progLabel = document.getElementById('bev-progress-label');
+        const timerEl = document.getElementById('bev-timer');
+        const ESTILOS = {
+            info: 'bg-gray-100 border-gray-300 text-gray-800',
+            aviso: 'bg-yellow-50 border-yellow-400 text-yellow-900',
+            carregando: 'bg-purple-50 border-purple-300 text-purple-900',
+            ok: 'bg-green-50 border-green-400 text-green-900',
+            erro: 'bg-red-50 border-red-400 text-red-800',
+        };
+        function mostrarStatus(tipo, texto, { botao = null, progresso = false } = {}) {
+            statusBox.className = `w-full max-w-md mb-4 rounded border px-3 py-2 text-sm ${ESTILOS[tipo]}`;
+            statusText.textContent = texto;
+            statusBtn.classList.toggle('hidden', !botao);
+            if (botao) statusBtn.textContent = botao;
+            progBox.classList.toggle('hidden', !progresso);
+        }
+        const MB = (b) => (b / 1048576).toFixed(0);
+        const temWebGPU = !!navigator.gpu;
+        const TAMANHO_ESTIMADO = temWebGPU ? '~255 MB (WebGPU q4f16)' : '~692 MB (WASM fp16)';
+
+        let lfmWorker = null, lfmMsgId = 0, lfmPendentes = new Map();
+        let lfmPronto = false, lfmCarregando = null, lfmInfo = null;
+        let lfmStats = { consultas: 0, diferentes: 0, fallback: 0, msTotal: 0 };
+        function chamarWorker(type, extra = {}) {
+            if (!lfmWorker) {
+                lfmWorker = new Worker(new URL('lfm-worker.js', location.href), { type: 'module' });
+                lfmWorker.onmessage = ({ data }) => {
+                    if (data.type === 'progress') return onProgresso(data);
+                    const p = lfmPendentes.get(data.id); if (!p) return;
+                    lfmPendentes.delete(data.id);
+                    data.ok ? p.resolve(data.result) : p.reject(new Error(data.error));
+                };
+                lfmWorker.onerror = (e) => {
+                    const err = new Error('Falha no worker do LFM2: ' + (e.message || 'erro ao iniciar'));
+                    for (const p of lfmPendentes.values()) p.reject(err);
+                    lfmPendentes.clear();
+                };
+            }
+            const id = ++lfmMsgId;
+            return new Promise((resolve, reject) => {
+                lfmPendentes.set(id, { resolve, reject });
+                lfmWorker.postMessage({ id, type, ...extra });
+            });
+        }
+
+        function onProgresso(d) {
+            const nome = (b, t) => `${b === 'webgpu' ? 'WebGPU' : 'WASM'} ${t || ''}`.trim();
+            if (d.phase === 'start') {
+                mostrarStatus('carregando', d.fromCache ? `💾 Carregando o LFM2 do cache do navegador (${nome(d.backend, d.dtype)})…` : `⬇️ Baixando o LFM2 do Hugging Face (${nome(d.backend, d.dtype)}, só na primeira vez)…`, { progresso: true });
+                progBar.style.width = '0%'; progPct.textContent = '0%';
+                progLabel.textContent = d.fromCache ? '💾 Carregando do cache' : '⬇️ Baixando da internet';
+                return;
+            }
+            if (d.phase === 'warmup') { statusText.textContent = `⚙️ Preparando o LFM2 (${nome(d.backend)})…`; progLabel.textContent = 'Inicializando'; return; }
+            if (d.phase === 'fallback') { logDebug(`Backend falhou, tentando outro: ${d.erro}`, true); return; }
+            const pct = (100 * d.got / d.total);
+            progBar.style.width = pct.toFixed(1) + '%';
+            progPct.textContent = `${pct.toFixed(0)}% · ${MB(d.got)} / ${MB(d.total)} MB`;
+        }
+
+        async function verificarBev() {
+            try {
+                const st = await chamarWorker('status');
+                const algum = st.cached[temWebGPU ? 'q4f16' : 'fp16'];
+                if (algum) carregarBevLocal().catch(() => {});
+                else mostrarStatus('aviso', `📦 É preciso baixar o modelo LFM2-350M (${TAMANHO_ESTIMADO}, do Hugging Face) para a IA chutar quando não houver jogada certa.`, { botao: 'Baixar' });
+            } catch (e) {
+                mostrarStatus('erro', `❌ Erro ao verificar o modelo: ${e.message}`, { botao: 'Tentar de novo' });
+            }
+        }
+
+        function carregarBevLocal() {
+            if (lfmPronto) return Promise.resolve();
+            if (lfmCarregando) return lfmCarregando;
+            const t0 = performance.now();
+            mostrarStatus('carregando', '⏳ Carregando o modelo LFM2…', { progresso: true });
+            progBar.style.width = '0%'; progPct.textContent = '0%'; progLabel.textContent = '';
+            logDebug('📦 Carregando LFM2-350M no navegador (Web Worker)...');
+            lfmCarregando = chamarWorker('load', { forceWasm: new URLSearchParams(location.search).has('wasm') }).then((r) => {
+                lfmPronto = true; lfmInfo = r;
+                const seg = ((performance.now() - t0) / 1000).toFixed(1);
+                const be = `${r.device === 'webgpu' ? 'WebGPU' : 'WASM'} ${r.dtype}`;
+                mostrarStatus('ok', `Modelo carregado ✅ (LFM2-350M, ${be}, ${MB(r.bytes)} MB${r.fromCache ? ' do cache' : ' baixados'}, ${seg} s)`);
+                logDebug(`✅ LFM2 carregado (${be}, ${MB(r.bytes)} MB) em ${seg}s${r.erros.length ? ' — falhas antes: ' + r.erros.join(' | ') : ''}`);
+            }).catch((e) => {
+                lfmCarregando = null;
+                mostrarStatus('erro', `❌ Erro ao carregar o modelo: ${e.message}`, { botao: 'Tentar de novo' });
+                logDebug(`Erro ao carregar o LFM2: ${e.message}`, true);
+                if (lfmWorker) { lfmWorker.terminate(); lfmWorker = null; }
+                throw e;
+            });
+            return lfmCarregando;
+        }
+
+        statusBtn.addEventListener('click', () => carregarBevLocal().catch(() => {}));
+        document.getElementById('bev-local-load').addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+            carregarBevLocal().catch(() => {});
+        });
+        document.getElementById('bev-local-clear').addEventListener('click', async () => {
+            if (typeof caches !== 'undefined') {
+                for (const n of await caches.keys()) {
+                    const c = await caches.open(n);
+                    for (const req of await c.keys()) if (req.url.includes('LFM2-350M-ONNX')) await c.delete(req);
+                }
+            }
+            settingsModal.classList.add('hidden');
+            logDebug('🗑️ Cache do LFM2 apagado.');
+            const carregado = lfmPronto;
+            mostrarStatus('aviso', `🗑️ Cache apagado. ${carregado ? 'O modelo continua na memória até recarregar a página.' : `Será preciso baixar de novo (${TAMANHO_ESTIMADO}).`}`, carregado ? {} : { botao: 'Baixar' });
+        });
+
+        // Pergunta ao LFM2 qual opção (A–H) é a mais segura, com cronômetro visível.
+        // Retorna o índice escolhido em `opcoes` (fallback: 0 = menor risco).
+        async function consultarLFM(board, opcoes) {
+            if (!lfmPronto) {
+                if (!lfmCarregando) {
+                    const st = await chamarWorker('status');
+                    if (!(st.cached.q4f16 || st.cached.fp16)) {
+                        mostrarStatus('aviso', `📦 O autoplay precisa do LFM2: baixe o modelo (${TAMANHO_ESTIMADO}) e ligue o autoplay de novo.`, { botao: 'Baixar' });
+                        throw new Error('Modelo LFM2 ainda não baixado');
+                    }
+                }
+                await carregarBevLocal();
+            }
+            const t0 = performance.now();
+            timerEl.classList.remove('hidden');
+            const tick = () => { timerEl.textContent = `🧠 LFM2 pensando… ${((performance.now() - t0) / 1000).toFixed(1)} s`; };
+            tick();
+            const iv = setInterval(tick, 100);
+            try {
+                const r = await chamarWorker('decide', { board, opcoes });
+                const ms = performance.now() - t0;
+                lfmStats.consultas++; lfmStats.msTotal += ms;
+                const lp = r.logprobs.map(Number);
+                const massa = lp.reduce((a, x) => a + Math.exp(x), 0);
+                let best = 0; lp.forEach((x, i) => { if (x > lp[best]) best = i; });
+                let fallback = !(massa >= 0.2) || lp.some((x) => !Number.isFinite(x));
+                if (fallback) { best = 0; lfmStats.fallback++; }
+                if (best !== 0) lfmStats.diferentes++;
+                const L = 'ABCDEFGH'[best];
+                timerEl.textContent = `🧠 LFM2 decidiu em ${(ms / 1000).toFixed(1)} s: ${fallback ? 'resposta ilegível → menor risco' : L} (${opcoes[best].r},${opcoes[best].c})`;
+                logDebug(`🧠 LFM2: ${fallback ? `resposta ilegível (top="${r.top}", massa das letras ${(massa * 100).toFixed(0)}%) → menor risco` : `opção ${L} (p=${Math.exp(lp[best]).toFixed(2)}, massa ${(massa * 100).toFixed(0)}%)`} → cavar ${opcoes[best].r},${opcoes[best].c} (risco ${opcoes[best].risco}%) em ${Math.round(ms)} ms, ${r.tokens} tokens`);
+                return best;
+            } catch (e) {
+                timerEl.textContent = `❌ LFM2 falhou após ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+                mostrarStatus('erro', `❌ Erro na inferência do LFM2: ${e.message}`);
+                throw e;
+            } finally {
+                clearInterval(iv);
+            }
+        }
+
+        // Limpa chaves antigas do modo servidor remoto (removido)
+        ['bevUrl', 'bevKey', 'bevModo', 'jevApiKey'].forEach((k) => localStorage.removeItem(k));
+        verificarBev();
+
+        // --- Solucionador determinístico (regras certas) ---
+        function vizinhos(r, c) {
+            const out = [];
+            for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+                if (!i && !j) continue;
+                const nr = r + i, nc = c + j;
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) out.push([nr, nc]);
+            }
+            return out;
+        }
+
+        // Retorna {acao: 'cavar'|'bandeira', r, c, motivo} ou null
+        function jogadaCerta() {
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+                const cell = board[r][c];
+                if (!cell.isRevealed || cell.neighborMines === 0) continue;
+                const viz = vizinhos(r, c);
+                const flags = viz.filter(([a, b]) => board[a][b].isFlagged);
+                const ocultas = viz.filter(([a, b]) => !board[a][b].isRevealed && !board[a][b].isFlagged);
+                if (!ocultas.length) continue;
+                const n = cell.neighborMines;
+                if (flags.length === n) {
+                    const [a, b] = ocultas[0];
+                    return { acao: 'cavar', r: a, c: b, motivo: `(${r},${c})=${n} já tem ${n} bandeira(s)` };
+                }
+                if (flags.length + ocultas.length === n) {
+                    const [a, b] = ocultas[0];
+                    return { acao: 'bandeira', r: a, c: b, motivo: `(${r},${c})=${n} tem exatamente ${n} vizinha(s) restantes` };
+                }
+            }
+            return null;
+        }
+
+        function executarJogada(acao, r, c) {
+            const cell = board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return false;
+            if (acao === 'cavar') {
+                const prev = flagMode; flagMode = false;
+                handleLeftClick(r, c);
+                flagMode = prev;
+            } else {
+                handleRightClick(r, c);
+            }
+            return true;
+        }
+
+        function montarEstado() {
+            let s = "Minesweeper board. Rows and columns are 0-indexed.\n";
+            s += "Legend: '?' unrevealed, 'F' flagged mine, '_' revealed with 0 adjacent mines, '1'-'8' adjacent mine count.\n";
+            s += `Mines left (not flagged): ${minesLeft}\n   `;
+            for (let c = 0; c < cols; c++) s += c.toString().padStart(2, ' ') + " ";
+            s += "\n";
+            for (let r = 0; r < rows; r++) {
+                s += r.toString().padStart(2, ' ') + " ";
+                for (let c = 0; c < cols; c++) {
+                    const cell = board[r][c];
+                    s += cell.isRevealed ? (cell.neighborMines > 0 ? ` ${cell.neighborMines} ` : ' _ ') : (cell.isFlagged ? ' F ' : ' ? ');
+                }
+                s += "\n";
+            }
+            return s;
+        }
+
+        // Retorna true se consultou o LFM2 (para ajustar o intervalo)
+        async function playAIMove() {
+            // 1) Primeiro clique: centro do tabuleiro (sempre seguro neste jogo)
+            if (isFirstClick) {
+                const r = Math.floor(rows / 2), c = Math.floor(cols / 2);
+                logDebug(`🎯 Abertura: cavar (${r},${c})`);
+                executarJogada('cavar', r, c);
+                return false;
+            }
+
+            // 2) Lógica determinística
+            const certa = jogadaCerta();
+            if (certa) {
+                logDebug(`🧮 Lógica: ${certa.acao} (${certa.r},${certa.c}) — ${certa.motivo}`);
+                executarJogada(certa.acao, certa.r, certa.c);
+                return false;
+            }
+
+            // 3) Sem jogada certa: pergunta ao LFM2 qual célula cavar
+            // Estimativa local de risco para filtrar as opções enviadas ao LFM2
+            const ocultasTodas = [];
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+                const cell = board[r][c];
+                if (!cell.isRevealed && !cell.isFlagged) ocultasTodas.push([r, c]);
+            }
+            if (!ocultasTodas.length) return false;
+            const riscoBase = Math.max(minesLeft, 0) / ocultasTodas.length;
+            const risco = ([r, c]) => {
+                let pior = -1;
+                for (const [a, b] of vizinhos(r, c)) {
+                    const n = board[a][b];
+                    if (!n.isRevealed || n.neighborMines === 0) continue;
+                    const vz = vizinhos(a, b);
+                    const f = vz.filter(([x, y]) => board[x][y].isFlagged).length;
+                    const h = vz.filter(([x, y]) => !board[x][y].isRevealed && !board[x][y].isFlagged).length;
+                    pior = Math.max(pior, (n.neighborMines - f) / h);
+                }
+                return pior < 0 ? riscoBase : pior;
+            };
+            const candidatos = ocultasTodas
+                .map(rc => [rc, risco(rc) + Math.random() * 1e-3])
+                .sort((x, y) => x[1] - y[1])
+                .slice(0, 8)
+                .map(x => x[0]);
+
+            const opcoes = candidatos.map(([r, c]) => ({ r, c, risco: Math.round(risco([r, c]) * 100) }));
+            const tabuleiro = montarEstado().split('\n').slice(3).join('\n');
+            logDebug(`🤔 Sem jogada certa. Consultando LFM2 com ${opcoes.length} opções (menor risco: ${opcoes[0].r},${opcoes[0].c} = ${opcoes[0].risco}%)...`);
+            const i = await consultarLFM(tabuleiro, opcoes);
+            executarJogada('cavar', opcoes[i].r, opcoes[i].c);
+            return true;
+        }
+
+        // Iniciar o jogo na primeira carga
+        window.onload = initGame;
+
+    </script>
+</body>
+</html>
