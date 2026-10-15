@@ -12,11 +12,19 @@ body {
 }
 canvas { display: block; }
 </style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js"
+  }
+}
+</script>
 </head>
 <body>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script>
+<script type="module">
+import * as THREE from 'three';
+
 // Parâmetros
 const TAU = Math.PI * 2;
 const rows = 32; // j: 0 a PI, passo PI/32 = 32 rows
@@ -32,13 +40,13 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Luzes
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+// Luzes - intensidade ajustada para three.js recente
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
-const pointLight1 = new THREE.PointLight(0x38bdf8, 2, 1500);
+const pointLight1 = new THREE.PointLight(0x38bdf8, 3, 1500, 0); // decay: 0 para luz não enfraquecer
 pointLight1.position.set(300, 300, 300);
 scene.add(pointLight1);
-const pointLight2 = new THREE.PointLight(0x8b5cf6, 2, 1500);
+const pointLight2 = new THREE.PointLight(0x8b5cf6, 3, 1500, 0); // decay: 0
 pointLight2.position.set(-300, -300, 300);
 scene.add(pointLight2);
 
@@ -57,8 +65,8 @@ const material = new THREE.MeshPhongMaterial({
 const instancedMesh = new THREE.InstancedMesh(geometry, material, totalInstances);
 scene.add(instancedMesh);
 
-// Matriz temporária para atualizar posições
-const matrix = new THREE.Matrix4();
+// Objeto auxiliar para calcular matrizes
+const dummy = new THREE.Object3D();
 
 // Variáveis do snippet
 let f = 0;
@@ -79,11 +87,13 @@ function updateInstances() {
       // Escala baseada em cos(i+f)
       const scale = Math.abs(Math.cos(i + f));
       
-      matrix.position.set(x, y, z);
-      matrix.scale.set(scale, scale, scale);
-      matrix.rotation.set(0, i + f, 0);
+      // Usa objeto auxiliar para definir transformações
+      dummy.position.set(x, y, z);
+      dummy.scale.setScalar(scale);
+      dummy.rotation.set(0, i + f, 0);
+      dummy.updateMatrix();
       
-      instancedMesh.setMatrixAt(index, matrix);
+      instancedMesh.setMatrixAt(index, dummy.matrix);
       index++;
     }
   }
