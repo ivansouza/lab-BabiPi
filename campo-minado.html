@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Campo Minado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body {
+            background-color: #f3f4f6;
+            touch-action: manipulation; /* Previne zoom duplo no mobile */
+        }
+
+        .digital-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .game-board {
+            background-color: #bdbdbd;
+            border-top: 4px solid #fff;
+            border-left: 4px solid #fff;
+            border-bottom: 4px solid #7b7b7b;
+            border-right: 4px solid #7b7b7b;
+            padding: 8px;
+        }
+
+        .game-header {
+            border-top: 3px solid #7b7b7b;
+            border-left: 3px solid #7b7b7b;
+            border-bottom: 3px solid #fff;
+            border-right: 3px solid #fff;
+            background-color: #bdbdbd;
+        }
+
+        .grid-container {
+            border-top: 3px solid #7b7b7b;
+            border-left: 3px solid #7b7b7b;
+            border-bottom: 3px solid #fff;
+            border-right: 3px solid #fff;
+        }
+
+        .cell {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.125rem;
+            cursor: pointer;
+            user-select: none;
+            background-color: #bdbdbd;
+        }
+
+        .cell-hidden {
+            border-top: 3px solid #fff;
+            border-left: 3px solid #fff;
+            border-bottom: 3px solid #7b7b7b;
+            border-right: 3px solid #7b7b7b;
+        }
+
+        .cell-hidden:active {
+            border: 1px solid #7b7b7b;
+            background-color: #e5e7eb;
+        }
+
+        .cell-revealed {
+            border: 1px solid #7b7b7b;
+            background-color: #e5e7eb;
+        }
+
+        .cell-mine {
+            background-color: #ef4444; /* Vermelho quando explode */
+        }
+
+        /* Cores dos números clássicos */
+        .color-1 { color: #2563eb; } /* Azul */
+        .color-2 { color: #16a34a; } /* Verde */
+        .color-3 { color: #dc2626; } /* Vermelho */
+        .color-4 { color: #1e3a8a; } /* Azul escuro */
+        .color-5 { color: #7f1d1d; } /* Marrom/Vermelho escuro */
+        .color-6 { color: #0ea5e9; } /* Ciano */
+        .color-7 { color: #000000; } /* Preto */
+        .color-8 { color: #4b5563; } /* Cinza */
+
+        .btn-face {
+            width: 40px;
+            height: 40px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #bdbdbd;
+            border-top: 3px solid #fff;
+            border-left: 3px solid #fff;
+            border-bottom: 3px solid #7b7b7b;
+            border-right: 3px solid #7b7b7b;
+            cursor: pointer;
+        }
+        .btn-face:active {
+            border-top: 3px solid #7b7b7b;
+            border-left: 3px solid #7b7b7b;
+            border-bottom: 3px solid #fff;
+            border-right: 3px solid #fff;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full flex flex-col items-center">
+        <h1 class="text-3xl font-bold mb-4 text-gray-800 drop-shadow-sm">Campo Minado</h1>
+        
+        <!-- Seleção de Dificuldade e Modo (Mobile) -->
+        <div class="w-full flex justify-between items-center mb-4 gap-2">
+            <select id="difficulty" class="bg-white border border-gray-300 text-gray-700 py-1 px-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="easy">Fácil (9x9, 10 minas)</option>
+                <option value="medium">Médio (12x12, 25 minas)</option>
+                <option value="hard">Difícil (16x16, 40 minas)</option>
+            </select>
+            
+            <button id="mode-toggle" class="bg-blue-100 border border-blue-400 text-blue-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors">
+                <span>⛏️ Cavar</span>
+            </button>
+        </div>
+
+        <!-- Novos botões de Autoplay e Configurações -->
+        <div class="w-full flex justify-between items-center mb-4 gap-2">
+            <button id="settings-btn" class="bg-gray-200 border border-gray-400 text-gray-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors hover:bg-gray-300">
+                <span>⚙️ API</span>
+            </button>
+            <button id="debug-toggle-btn" class="bg-gray-200 border border-gray-400 text-gray-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors hover:bg-gray-300">
+                <span>🐞 Log</span>
+            </button>
+            <button id="autoplay-btn" class="bg-purple-100 border border-purple-400 text-purple-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center justify-center gap-1 transition-colors hover:bg-purple-200 flex-1">
+                <span id="autoplay-text">🤖 Autoplay (Off)</span>
+            </button>
+        </div>
+
+        <!-- Placa do Jogo -->
+        <div class="game-board rounded-sm shadow-2xl inline-block">
+            <!-- Cabeçalho (Contador, Rosto, Tempo) -->
+            <div class="game-header p-2 mb-3 flex justify-between items-center h-16">
+                <!-- Contador de Minas -->
+                <div class="bg-black text-red-500 digital-font text-3xl px-2 py-1 rounded border-2 border-gray-600 border-t-gray-800 border-l-gray-800 tracking-wider w-20 text-center" id="mine-count">
+                    010
+                </div>
+
+                <!-- Botão de Reiniciar (Rosto) -->
+                <button id="reset-btn" class="btn-face">
+                    😃
+                </button>
+
+                <!-- Cronômetro -->
+                <div class="bg-black text-red-500 digital-font text-3xl px-2 py-1 rounded border-2 border-gray-600 border-t-gray-800 border-l-gray-800 tracking-wider w-20 text-center" id="timer">
+                    000
+                </div>
+            </div>
+
+            <!-- Grade -->
+            <div class="grid-container bg-gray-300" id="grid">
+                <!-- Células geradas via JS -->
+            </div>
+        </div>
+        
+        <p class="mt-6 text-sm text-gray-500 text-center">
+            <strong>Dica:</strong> No computador, use o botão direito para colocar bandeiras. No celular, use o botão "Cavar/Bandeira" acima do tabuleiro.
+        </p>
+
+        <!-- Painel de Depuração -->
+        <div id="debug-panel" class="hidden w-full max-w-md mt-4 bg-black text-green-400 font-mono text-xs rounded shadow-inner h-48 flex flex-col border border-gray-600">
+            <div class="flex justify-between items-center bg-gray-800 px-2 py-1 border-b border-gray-600">
+                <span class="text-gray-300 font-semibold tracking-wider">Terminal Log</span>
+                <button id="copy-log-btn" class="text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition-colors flex items-center gap-1 shadow">
+                    📋 Copiar
+                </button>
+            </div>
+            <div id="debug-log" class="p-2 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Fim de Jogo -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full mx-4 transform transition-all scale-95 opacity-0" id="modal-content">
+            <h2 id="modal-title" class="text-2xl font-bold mb-2">Fim de Jogo</h2>
+            <p id="modal-message" class="text-gray-600 mb-6">Você perdeu!</p>
+            <button onclick="initGame()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full w-full transition-colors shadow-md">
+                Jogar Novamente
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Configurações da API -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 transform transition-all" id="settings-modal-content">
+            <h2 class="text-2xl font-bold mb-2">Configurações</h2>
+            <p class="text-sm text-gray-500 mb-4">Insira sua chave da API do Jev para habilitar a IA.</p>
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="api-key-input">
+                Jev API Key:
+            </label>
+            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" id="api-key-input" type="password" placeholder="Chave da API...">
+            <div class="flex justify-end gap-2 items-center">
+                <span id="settings-status" class="text-sm font-semibold hidden mr-auto"></span>
+                <button id="settings-cancel" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Cancelar</button>
+                <button id="settings-save" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações e Estado do Jogo
+        const config = {
+            easy: { rows: 9, cols: 9, mines: 10 },
+            medium: { rows: 12, cols: 12, mines: 25 },
+            hard: { rows: 16, cols: 16, mines: 40 }
+        };
+
+        let rows, cols, totalMines;
+        let board = [];
+        let minesLeft = 0;
+        let cellsRevealed = 0;
+        let isGameOver = false;
+        let isFirstClick = true;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let flagMode = false; // Para mobile (Cavar vs Bandeira)
+        
+        let isAutoplayRunning = false;
+        let autoplayTimeout = null;
+
+        // Elementos do DOM
+        const gridElement = document.getElementById('grid');
+        const mineCountElement = document.getElementById('mine-count');
+        const timerElement = document.getElementById('timer');
+        const resetBtn = document.getElementById('reset-btn');
+        const difficultySelect = document.getElementById('difficulty');
+        const modeToggleBtn = document.getElementById('mode-toggle');
+        
+        const modal = document.getElementById('game-over-modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+
+        // Novos Elementos
+        const settingsBtn = document.getElementById('settings-btn');
+        const debugToggleBtn = document.getElementById('debug-toggle-btn');
+        const debugPanel = document.getElementById('debug-panel');
+        const debugLog = document.getElementById('debug-log');
+        const copyLogBtn = document.getElementById('copy-log-btn');
+        const autoplayBtn = document.getElementById('autoplay-btn');
+        const autoplayText = document.getElementById('autoplay-text');
+        const settingsModal = document.getElementById('settings-modal');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const settingsCancel = document.getElementById('settings-cancel');
+        const settingsSave = document.getElementById('settings-save');
+        const settingsStatus = document.getElementById('settings-status');
+
+        // Inicialização
+        function initGame() {
+            // Parar timer e esconder modal
+            stopTimer();
+            hideModal();
+            stopAutoplay();
+
+            // Obter dificuldade
+            const diff = difficultySelect.value;
+            rows = config[diff].rows;
+            cols = config[diff].cols;
+            totalMines = config[diff].mines;
+
+            // Resetar variáveis
+            board = [];
+            minesLeft = totalMines;
+            cellsRevealed = 0;
+            isGameOver = false;
+            isFirstClick = true;
+            secondsElapsed = 0;
+            
+            updateDisplay();
+            resetBtn.textContent = '😃';
+
+            // Configurar Grid CSS
+            gridElement.style.display = 'grid';
+            gridElement.style.gridTemplateColumns = `repeat(${cols}, max-content)`;
+            gridElement.innerHTML = ''; // Limpar grade antiga
+
+            // Criar estrutura de dados e elementos DOM
+            for (let r = 0; r < rows; r++) {
+                let rowArray = [];
+                for (let c = 0; c < cols; c++) {
+                    // Estrutura de dados
+                    let cellData = {
+                        r: r,
+                        c: c,
+                        isMine: false,
+                        isRevealed: false,
+                        isFlagged: false,
+                        neighborMines: 0
+                    };
+                    rowArray.push(cellData);
+
+                    // Elemento DOM
+                    const cellEl = document.createElement('div');
+                    cellEl.classList.add('cell', 'cell-hidden');
+                    cellEl.dataset.r = r;
+                    cellEl.dataset.c = c;
+
+                    // Eventos
+                    cellEl.addEventListener('click', (e) => handleLeftClick(r, c));
+                    cellEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault(); // Previne menu padrão
+                        handleRightClick(r, c);
+                    });
+
+                    // Efeito de susto no rosto ao clicar (opcional)
+                    cellEl.addEventListener('mousedown', (e) => {
+                        if (!isGameOver && e.button === 0 && !cellData.isRevealed) resetBtn.textContent = '😮';
+                    });
+                    cellEl.addEventListener('mouseup', () => {
+                        if (!isGameOver) resetBtn.textContent = '😃';
+                    });
+                    cellEl.addEventListener('mouseleave', () => {
+                        if (!isGameOver) resetBtn.textContent = '😃';
+                    });
+
+                    gridElement.appendChild(cellEl);
+                }
+                board.push(rowArray);
+            }
+        }
+
+        // Posicionar minas após o primeiro clique (garante que o primeiro clique nunca é mina)
+        function placeMines(firstR, firstC) {
+            let minesPlaced = 0;
+            while (minesPlaced < totalMines) {
+                let r = Math.floor(Math.random() * rows);
+                let c = Math.floor(Math.random() * cols);
+                
+                // Não colocar na posição do primeiro clique nem se já for mina
+                // Para ser mais amigável, também podemos evitar os adjacentes do primeiro clique, 
+                // mas para manter simples, evitamos apenas o próprio quadrado clicado.
+                if (!board[r][c].isMine && (r !== firstR || c !== firstC)) {
+                    board[r][c].isMine = true;
+                    minesPlaced++;
+                }
+            }
+            calculateNeighbors();
+        }
+
+        // Calcular números vizinhos
+        function calculateNeighbors() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (!board[r][c].isMine) {
+                        let count = 0;
+                        // Checar 8 direções
+                        for (let i = -1; i <= 1; i++) {
+                            for (let j = -1; j <= 1; j++) {
+                                let nr = r + i;
+                                let nc = c + j;
+                                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].isMine) {
+                                    count++;
+                                }
+                            }
+                        }
+                        board[r][c].neighborMines = count;
+                    }
+                }
+            }
+        }
+
+        // Interação: Clique Esquerdo (Revelar)
+        function handleLeftClick(r, c) {
+            if (isGameOver) return;
+            let cell = board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            // Se modo bandeira mobile estiver ativo, agir como clique direito
+            if (flagMode) {
+                handleRightClick(r, c);
+                return;
+            }
+
+            if (isFirstClick) {
+                isFirstClick = false;
+                placeMines(r, c);
+                startTimer();
+            }
+
+            if (cell.isMine) {
+                gameOver(false, r, c);
+            } else {
+                revealCell(r, c);
+                checkWinCondition();
+            }
+        }
+
+        // Interação: Clique Direito / Modo Bandeira (Sinalizar)
+        function handleRightClick(r, c) {
+            if (isGameOver) return;
+            let cell = board[r][c];
+            if (cell.isRevealed) return;
+
+            // Se é o primeiro clique e o usuário já está botando bandeira, iniciar timer
+            if (isFirstClick) {
+                isFirstClick = false;
+                // Coloca minas em local seguro genérico (já que ele não revelou nada)
+                placeMines(-1, -1); 
+                startTimer();
+            }
+
+            cell.isFlagged = !cell.isFlagged;
+            minesLeft += cell.isFlagged ? -1 : 1;
+            
+            updateDisplay();
+            updateCellDOM(r, c);
+        }
+
+        // Lógica de Revelação (Flood Fill para áreas vazias)
+        function revealCell(r, c) {
+            let cell = board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            cell.isRevealed = true;
+            cellsRevealed++;
+            updateCellDOM(r, c);
+
+            // Se não tem minas vizinhas, revelar adjacentes recursivamente
+            if (cell.neighborMines === 0) {
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        let nr = r + i;
+                        let nc = c + j;
+                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                            revealCell(nr, nc);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Atualizar o visual de uma célula específica
+        function updateCellDOM(r, c) {
+            let cell = board[r][c];
+            // Encontrar o elemento no DOM (calculando o index)
+            let index = r * cols + c;
+            let el = gridElement.children[index];
+
+            if (cell.isRevealed) {
+                el.classList.remove('cell-hidden');
+                el.classList.add('cell-revealed');
+                
+                if (cell.isMine) {
+                    el.classList.add('cell-mine');
+                    el.textContent = '💣';
+                } else if (cell.neighborMines > 0) {
+                    el.textContent = cell.neighborMines;
+                    el.classList.add(`color-${cell.neighborMines}`);
+                } else {
+                    el.textContent = '';
+                }
+            } else {
+                el.classList.remove('cell-revealed', 'cell-mine');
+                el.classList.add('cell-hidden');
+                // Limpar cores antigas
+                for(let i=1; i<=8; i++) el.classList.remove(`color-${i}`);
+                
+                if (cell.isFlagged) {
+                    el.textContent = '🚩';
+                } else {
+                    el.textContent = '';
+                }
+            }
+        }
+
+        // Fim de Jogo (Vitória ou Derrota)
+        function gameOver(isWin, explodedR = -1, explodedC = -1) {
+            isGameOver = true;
+            stopTimer();
+            stopAutoplay();
+
+            if (isWin) {
+                resetBtn.textContent = '😎';
+                // Marcar as minas restantes com bandeiras
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let cell = board[r][c];
+                        if (cell.isMine && !cell.isFlagged) {
+                            cell.isFlagged = true;
+                            updateCellDOM(r, c);
+                        }
+                    }
+                }
+                minesLeft = 0;
+                updateDisplay();
+                showModal("Vitória!", "Parabéns, você limpou o campo minado!", "text-green-600");
+            } else {
+                resetBtn.textContent = '😵';
+                // Revelar todas as minas
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let cell = board[r][c];
+                        if (cell.isMine) {
+                            // Se era mina e não estava com bandeira, revelar
+                            cell.isRevealed = true;
+                            updateCellDOM(r, c);
+                            // Destacar a mina que explodiu
+                            if (r === explodedR && c === explodedC) {
+                                let el = gridElement.children[r * cols + c];
+                                el.classList.add('bg-red-500'); 
+                            }
+                        } else if (!cell.isMine && cell.isFlagged) {
+                            // Bandeira errada
+                            let el = gridElement.children[r * cols + c];
+                            el.innerHTML = '<span class="relative">💣<span class="absolute inset-0 flex items-center justify-center text-red-500 text-2xl font-bold">❌</span></span>';
+                        }
+                    }
+                }
+                showModal("Fim de Jogo", "Você pisou em uma mina!", "text-red-600");
+            }
+        }
+
+        function checkWinCondition() {
+            if (cellsRevealed === (rows * cols) - totalMines) {
+                gameOver(true);
+            }
+        }
+
+        // Utilidades de Display e Tempo
+        function updateDisplay() {
+            // Formatar contador de minas para 3 dígitos
+            let mCount = minesLeft < 0 ? '-' + Math.abs(minesLeft).toString().padStart(2, '0') : minesLeft.toString().padStart(3, '0');
+            mineCountElement.textContent = mCount;
+            
+            // Formatar timer para 3 dígitos
+            timerElement.textContent = Math.min(secondsElapsed, 999).toString().padStart(3, '0');
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                updateDisplay();
+                if (secondsElapsed >= 999) stopTimer(); // Cap em 999
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        // Alternância de Modo (Mobile)
+        modeToggleBtn.addEventListener('click', () => {
+            flagMode = !flagMode;
+            if (flagMode) {
+                modeToggleBtn.innerHTML = '<span>🚩 Bandeira</span>';
+                modeToggleBtn.classList.replace('bg-blue-100', 'bg-red-100');
+                modeToggleBtn.classList.replace('border-blue-400', 'border-red-400');
+                modeToggleBtn.classList.replace('text-blue-800', 'text-red-800');
+            } else {
+                modeToggleBtn.innerHTML = '<span>⛏️ Cavar</span>';
+                modeToggleBtn.classList.replace('bg-red-100', 'bg-blue-100');
+                modeToggleBtn.classList.replace('border-red-400', 'border-blue-400');
+                modeToggleBtn.classList.replace('text-red-800', 'text-blue-800');
+            }
+        });
+
+        // Eventos Globais
+        resetBtn.addEventListener('click', initGame);
+        difficultySelect.addEventListener('change', initGame);
+
+        // Funções do Modal
+        function showModal(title, msg, titleColorClass) {
+            setTimeout(() => {
+                modalTitle.textContent = title;
+                modalTitle.className = `text-3xl font-bold mb-2 ${titleColorClass}`;
+                modalMessage.textContent = msg;
+                modal.classList.remove('hidden');
+                // Pequeno delay para animação css
+                requestAnimationFrame(() => {
+                    modalContent.classList.remove('scale-95', 'opacity-0');
+                    modalContent.classList.add('scale-100', 'opacity-100');
+                });
+            }, 500); // Meio segundo de atraso para o jogador ver a explosão
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+        }
+
+        // --- INTEGRAÇÃO COM JEV API ---
+        let jevApiKey = localStorage.getItem('jevApiKey') || '';
+
+        // Funções de Depuração (Log)
+        debugToggleBtn.addEventListener('click', () => {
+            debugPanel.classList.toggle('hidden');
+        });
+
+        copyLogBtn.addEventListener('click', () => {
+            const textToCopy = debugLog.innerText;
+            if (!textToCopy) return;
+            
+            // Criando textarea invisível para executar o comando de cópia em iframes
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            tempTextArea.style.position = "fixed"; 
+            tempTextArea.style.left = "-9999px";
+            tempTextArea.style.top = "0";
+            document.body.appendChild(tempTextArea);
+            
+            tempTextArea.focus();
+            tempTextArea.select();
+            
+            try {
+                document.execCommand('copy');
+                const originalHTML = copyLogBtn.innerHTML;
+                copyLogBtn.innerHTML = '✅ Copiado!';
+                copyLogBtn.classList.replace('text-gray-300', 'text-green-400');
+                
+                setTimeout(() => {
+                    copyLogBtn.innerHTML = originalHTML;
+                    copyLogBtn.classList.replace('text-green-400', 'text-gray-300');
+                }, 2000);
+            } catch (err) {
+                console.error('Erro ao copiar log:', err);
+                copyLogBtn.innerHTML = '❌ Erro';
+            }
+            
+            document.body.removeChild(tempTextArea);
+        });
+
+        function logDebug(message, isError = false, isHtml = false) {
+            const time = new Date().toLocaleTimeString();
+            const msgDiv = document.createElement('div');
+            if (isHtml) {
+                msgDiv.innerHTML = `[${time}] ${message}`;
+            } else {
+                msgDiv.textContent = `[${time}] ${message}`;
+            }
+            msgDiv.className = isError ? 'text-red-400 font-bold mb-1' : 'mb-1 text-green-400';
+            debugLog.appendChild(msgDiv);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+        }
+
+        // Abrir modal de config
+        settingsBtn.addEventListener('click', () => {
+            apiKeyInput.value = jevApiKey;
+            settingsStatus.classList.add('hidden');
+            settingsModal.classList.remove('hidden');
+        });
+
+        // Fechar sem salvar
+        settingsCancel.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+
+        // Salvar chave
+        settingsSave.addEventListener('click', () => {
+            jevApiKey = apiKeyInput.value.trim();
+            localStorage.setItem('jevApiKey', jevApiKey);
+            
+            // Indicativo visual de sucesso
+            settingsStatus.textContent = 'Chave Salva! ✅';
+            settingsStatus.className = 'text-sm font-semibold text-green-600 mr-auto';
+            settingsStatus.classList.remove('hidden');
+            
+            setTimeout(() => {
+                settingsModal.classList.add('hidden');
+                settingsStatus.classList.add('hidden');
+            }, 1000);
+        });
+
+        // Controle de Estado do Autoplay
+        function stopAutoplay() {
+            isAutoplayRunning = false;
+            if (autoplayTimeout) clearTimeout(autoplayTimeout);
+            autoplayBtn.classList.replace('bg-red-100', 'bg-purple-100');
+            autoplayBtn.classList.replace('border-red-400', 'border-purple-400');
+            autoplayBtn.classList.replace('text-red-800', 'text-purple-800');
+            autoplayText.textContent = '🤖 Autoplay (Off)';
+        }
+
+        // Lógica do botão da IA
+        autoplayBtn.addEventListener('click', () => {
+            if (isGameOver) return;
+            
+            // Se não houver chave, abre o modal de configurações
+            if (!jevApiKey) {
+                settingsModal.classList.remove('hidden');
+                return;
+            }
+
+            isAutoplayRunning = !isAutoplayRunning;
+
+            if (isAutoplayRunning) {
+                autoplayBtn.classList.replace('bg-purple-100', 'bg-red-100');
+                autoplayBtn.classList.replace('border-purple-400', 'border-red-400');
+                autoplayBtn.classList.replace('text-purple-800', 'text-red-800');
+                autoplayText.textContent = '⏹️ Parar Autoplay';
+                runAutoplayLoop();
+            } else {
+                stopAutoplay();
+            }
+        });
+
+        async function runAutoplayLoop() {
+            if (!isAutoplayRunning || isGameOver) {
+                stopAutoplay();
+                return;
+            }
+
+            try {
+                autoplayText.textContent = '🤖 Pensando...';
+                await playAIMove();
+                
+                // Agenda a próxima jogada se o autoplay ainda estiver ativo e o jogo não acabou
+                if (isAutoplayRunning && !isGameOver) {
+                    autoplayText.textContent = '⏹️ Parar Autoplay';
+                    // Delay de 1.5s para visualizar a jogada e evitar rate limits
+                    autoplayTimeout = setTimeout(runAutoplayLoop, 1500); 
+                } else {
+                    stopAutoplay();
+                }
+            } catch (error) {
+                console.error('Erro ao consultar a IA:', error);
+                logDebug(`Erro na IA: ${error.message}`, true);
+                autoplayText.textContent = 'Erro de IA';
+                stopAutoplay();
+                setTimeout(() => {
+                    if (!isGameOver) autoplayText.textContent = '🤖 Autoplay (Off)';
+                }, 4000);
+            }
+        }
+
+        async function playAIMove() {
+            let stateStr = "You are an expert Minesweeper AI.\n";
+            stateStr += "Grid (Row | Col):\n";
+            stateStr += "   ";
+            // Criação do cabeçalho de colunas para alinhar perfeitamente
+            for (let c = 0; c < cols; c++) stateStr += c.toString().padStart(2, ' ') + " ";
+            stateStr += "\n";
+
+            let boundaryMoves = {};
+            let allUnrevealed = [];
+
+            // Desenha a grade com números nas linhas e identifica as "bordas"
+            for (let r = 0; r < rows; r++) {
+                stateStr += r.toString().padStart(2, ' ') + " ";
+                for (let c = 0; c < cols; c++) {
+                    let cell = board[r][c];
+                    if (cell.isRevealed) {
+                        stateStr += (cell.neighborMines > 0 ? " " + cell.neighborMines + " " : " _ ");
+                    } else if (cell.isFlagged) {
+                        stateStr += " F ";
+                    } else {
+                        stateStr += " ? ";
+                        allUnrevealed.push({r, c});
+                        
+                        // Verifica se esta célula escondida está encostada em um número revelado
+                        let isBoundary = false;
+                        for (let i = -1; i <= 1; i++) {
+                            for (let j = -1; j <= 1; j++) {
+                                let nr = r + i, nc = c + j;
+                                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                                    if (board[nr][nc].isRevealed && board[nr][nc].neighborMines > 0) {
+                                        isBoundary = true;
+                                    }
+                                }
+                            }
+                        }
+                        if (isBoundary) {
+                            boundaryMoves[`${r},${c}`] = `Border cell at ${r},${c}`;
+                        }
+                    }
+                }
+                stateStr += "\n";
+            }
+
+            // A IA foca muito melhor se dermos a ela apenas as células onde a lógica pode ser aplicada
+            let movesToConsider = Object.keys(boundaryMoves).length > 0 ? boundaryMoves : {};
+            
+            // Se for o primeiro clique ou não houver bordas, escolhe algumas aleatórias
+            if (Object.keys(movesToConsider).length === 0) {
+                for (let i = 0; i < Math.min(50, allUnrevealed.length); i++) {
+                    movesToConsider[`${allUnrevealed[i].r},${allUnrevealed[i].c}`] = `Unknown cell at ${allUnrevealed[i].r},${allUnrevealed[i].c}`;
+                }
+            }
+
+            let validMoves = {};
+            let count = 0;
+            for (let key in movesToConsider) {
+                if (count >= 200) break; // Garante que fica abaixo do limite da API
+                validMoves[key] = movesToConsider[key];
+                count++;
+            }
+
+            if (Object.keys(validMoves).length === 0) return;
+
+            // Injeção de Estratégia Explícita para o Modelo
+            stateStr += "\nRULES AND STRATEGY:\n";
+            stateStr += "- 'F' = Flagged Mine. '_' = 0 adjacent mines. '1'-'8' = Number of adjacent mines. '?' = Unrevealed.\n";
+            stateStr += "- Look at the numbers on the board.\n";
+            stateStr += "- Rule 1: If a number 'N' is touching exactly 'N' unrevealed ('?') cells, ALL of them are mines. Action: 'bandeira'.\n";
+            stateStr += "- Rule 2: If a number 'N' is touching exactly 'N' flags ('F'), ALL OTHER unrevealed ('?') cells touching it are safe. Action: 'cavar'.\n";
+            stateStr += "- Find the most obvious safe space or confirmed mine and return its coordinates.";
+
+            logDebug(`Gerando estado. Avaliando ${Object.keys(validMoves).length} células de borda lógicas.`);
+
+            const payload = {
+                model: "jev-latest",
+                state: stateStr,
+                questions: {
+                    action: {
+                        type: "choice",
+                        instructions: "Based on the rules, should I dig ('cavar') a safe space or flag ('bandeira') a confirmed mine?",
+                        criteria: {
+                            "cavar": "Dig a definitively safe cell.",
+                            "bandeira": "Flag a definitively mine cell."
+                        }
+                    },
+                    coordinates: {
+                        type: "choice",
+                        instructions: "Which specific coordinate (r,c) matches the action chosen? Choose the safest logical move.",
+                        criteria: validMoves
+                    }
+                }
+            };
+
+            const apiUrl = 'https://api.typesafe.ai/v1/systemone';
+
+            logDebug("Enviando requisição (POST) para TypeSafe...");
+
+            let response;
+            let success = false;
+            
+            // Lista de estratégias de conexão para contornar CORS
+            const endpoints = [
+                { url: apiUrl, name: "Conexão Direta" },
+                { url: 'https://api.codetabs.com/v1/proxy?quest=' + apiUrl, name: "CodeTabs" },
+                { url: 'https://corsproxy.io/?' + encodeURIComponent(apiUrl), name: "CorsProxy.io" },
+                { url: 'https://thingproxy.freeboard.io/fetch/' + apiUrl, name: "ThingProxy" },
+                { url: 'https://cors-anywhere.herokuapp.com/' + apiUrl, name: "CORS Anywhere" }
+            ];
+
+            for (const endpoint of endpoints) {
+                try {
+                    if (endpoint.name !== "Conexão Direta") {
+                        logDebug(`Tentando rota alternativa: ${endpoint.name}...`);
+                    }
+                    response = await fetch(endpoint.url, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + jevApiKey
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (response.ok) {
+                        success = true;
+                        break;
+                    } else {
+                        // A rede funcionou, mas a API recusou a requisição (ex: chave inválida)
+                        logDebug(`A API retornou erro via ${endpoint.name}: Status ${response.status}`, true);
+                        
+                        if (response.status === 401 || response.status === 403) {
+                            logDebug("⚠️ Sua Chave de API parece ser inválida ou não tem permissão.", true);
+                            throw new Error("Chave de API Inválida (401/403)");
+                        } else if (response.status === 429) {
+                            logDebug("⏳ Limite de requisições da API atingido (Rate Limit).", true);
+                            throw new Error("Rate Limit (429)");
+                        } else if (response.status === 400) {
+                            logDebug("❌ Requisição mal formatada (Bad Request).", true);
+                            throw new Error("Bad Request (400)");
+                        }
+                    }
+                } catch (e) {
+                    // Se o erro for da API (chave inválida, etc), paramos de tentar proxies
+                    if (e.message.includes("Inválida") || e.message.includes("Rate Limit") || e.message.includes("Bad Request")) {
+                        throw e;
+                    }
+
+                    // Falhou por rede/CORS, tenta o próximo
+                    if (endpoint.name !== "Conexão Direta") {
+                        logDebug(`Falha de rede/CORS em ${endpoint.name}.`, true);
+                    } else {
+                        logDebug("Bloqueio de CORS/Rede detectado na conexão direta.", true);
+                    }
+                }
+            }
+
+            if (!success) {
+                logDebug("🚨 <b>Todas as tentativas falharam devido ao CORS.</b>", true, true);
+                logDebug("Para resolver este erro de vez:", true);
+                logDebug('1. <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" class="text-blue-400 underline hover:text-blue-300">Clique aqui para abrir o CORS Anywhere</a>', false, true);
+                logDebug("2. Na nova aba, clique no botão 'Request temporary access...'", true);
+                logDebug("3. Volte aqui para o jogo e ative o Autoplay novamente.", true);
+                
+                // Força o painel de debug a abrir para o usuário ver o link
+                debugPanel.classList.remove('hidden');
+                
+                throw new Error("Bloqueio de CORS/Rede.");
+            }
+
+            const data = await response.json();
+            logDebug("Resposta da IA recebida com sucesso.");
+            
+            if (data.answers && data.answers.action && data.answers.coordinates) {
+                // A estrutura correta do Jev retorna dentro de "choice"
+                const actionStr = data.answers.action.choice;
+                const coordsStr = data.answers.coordinates.choice;
+                
+                logDebug(`🧠 Decisão: Ação [${actionStr}] em (${coordsStr})`);
+
+                const [moveR, moveC] = coordsStr.split(',').map(Number);
+
+                if (moveR >= 0 && moveR < rows && moveC >= 0 && moveC < cols) {
+                    let targetCell = board[moveR][moveC];
+                    
+                    if (!targetCell.isRevealed) {
+                        if (actionStr === "cavar" && !targetCell.isFlagged) {
+                            let previousMode = flagMode;
+                            flagMode = false;
+                            handleLeftClick(moveR, moveC);
+                            flagMode = previousMode;
+                        } else if (actionStr === "bandeira" && !targetCell.isFlagged) {
+                            handleRightClick(moveR, moveC);
+                        }
+                    }
+                }
+            } else {
+                throw new Error('Formato de resposta inesperado do Jev.');
+            }
+        }
+
+        // Iniciar o jogo na primeira carga
+        window.onload = initGame;
+
+    </script>
+</body>
+</html>
