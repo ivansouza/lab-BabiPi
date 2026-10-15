@@ -90,91 +90,9 @@ body {
     <p class="text-muted text-sm">Laboratório interativo de Ivan Souza</p>
   </header>
 
-  <!-- Grid de projetos -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    
-    <!-- Card: Lista de Compras -->
-    <div class="glass card-hover p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">🛒</span>
-          <div>
-            <h2 class="text-lg font-semibold text-white">Lista de Compras</h2>
-            <p class="text-muted text-xs">App web responsivo</p>
-          </div>
-        </div>
-        <span class="badge bg-emerald/10 text-emerald">ativo</span>
-      </div>
-      <p class="text-muted text-sm mb-4">
-        Lista de compras interativa com adicionar, editar, excluir e marcar itens como "no carrinho".
-        Design otimizado para celular.
-      </p>
-      <a href="lista-compras.html" target="_blank" 
-         class="inline-flex items-center gap-2 text-cyan hover:text-cyan-300 transition-colors text-sm font-medium">
-        <i class="fas fa-external-link-alt"></i> Abrir lista de compras
-      </a>
-    </div>
-
-    <!-- Card: Campo Minado -->
-    <div class="glass card-hover p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">💣</span>
-          <div>
-            <h2 class="text-lg font-semibold text-white">Campo Minado</h2>
-            <p class="text-muted text-xs">Jogo + IA (bev)</p>
-          </div>
-        </div>
-        <span class="badge bg-emerald/10 text-emerald">ativo</span>
-      </div>
-      <p class="text-muted text-sm mb-4">
-        Campo Minado clássico com 3 dificuldades, modo bandeira para celular e autoplay: um solver lógico faz as jogadas certas e o modelo de decisão bev escolhe os chutes.
-      </p>
-      <a href="campo-minado.html" target="_blank"
-         class="inline-flex items-center gap-2 text-cyan hover:text-cyan-300 transition-colors text-sm font-medium">
-        <i class="fas fa-external-link-alt"></i> Jogar Campo Minado
-      </a>
-    </div>
-
-    <!-- Card: Shader 3D -->
-    <div class="glass card-hover p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">✨</span>
-          <div>
-            <h2 class="text-lg font-semibold text-white">Shader 3D</h2>
-            <p class="text-muted text-xs">Three.js</p>
-          </div>
-        </div>
-        <span class="badge bg-emerald/10 text-emerald">experimento</span>
-      </div>
-      <p class="text-muted text-sm mb-4">
-        Experimento visual em 3D com cubos animados e iluminação, feito com Three.js.
-      </p>
-      <a href="shader.html" target="_blank"
-         class="inline-flex items-center gap-2 text-cyan hover:text-cyan-300 transition-colors text-sm font-medium">
-        <i class="fas fa-external-link-alt"></i> Abrir shader
-      </a>
-    </div>
-
-    <!-- Card: Em breve -->
-    <div class="glass card-hover p-6 opacity-60">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">📋</span>
-          <div>
-            <h2 class="text-lg font-semibold text-white">Em breve</h2>
-            <p class="text-muted text-xs">Novos projetos</p>
-          </div>
-        </div>
-        <span class="badge bg-amber/10 text-amber">em desenvolvimento</span>
-      </div>
-      <p class="text-muted text-sm">
-        Novos experiments e ferramentas sendo desenvolvidos.
-      </p>
-    </div>
-
-  </div>
+  <!-- Grid de projetos (gerado automaticamente) -->
+  <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  <p id="sync-status" class="text-muted text-xs mt-4"></p>
 
   <!-- Footer -->
   <footer class="mt-12 text-center text-muted text-xs">
@@ -182,5 +100,64 @@ body {
   </footer>
 </div>
 
+<script>
+const username = 'ivansouza', repo = 'lab-BabiPi';
+// Metadados opcionais: arquivos que não estiverem aqui aparecem sozinhos, varridos do GitHub
+const known = {
+  'campo-minado.html': { icon: '💣', name: 'Campo Minado', sub: 'Jogo + IA (bev)', desc: 'Campo Minado clássico com 3 dificuldades, modo bandeira no celular e autoplay: um solver lógico faz as jogadas certas e o modelo de decisão bev escolhe os chutes.' },
+  'lista-compras.html': { icon: '🛒', name: 'Lista de Compras', sub: 'App web responsivo', desc: 'Lista de compras interativa com adicionar, editar, excluir e marcar itens como "no carrinho". Design otimizado para celular.' },
+  'shader.html': { icon: '✨', name: 'Shader 3D', sub: 'Three.js', desc: 'Experimento visual em 3D com cubos animados e iluminação, feito com Three.js.' },
+};
+const ignore = ['index.html'];
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function pretty(file) {
+  const b = file.replace(/\.html$/i, '').replace(/[-_]+/g, ' ').trim();
+  return b.charAt(0).toUpperCase() + b.slice(1);
+}
+function card(e) {
+  return `<div class="glass card-hover p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">${e.icon || '🧪'}</span>
+        <div><h2 class="text-lg font-semibold text-white">${esc(e.name)}</h2>
+        <p class="text-muted text-xs">${esc(e.sub || '')}${e.date ? ' · ' + e.date : ''}</p></div>
+      </div>
+      ${e.isNew ? '<span class="badge" style="background:rgba(52,211,153,.12);color:#34d399">novo</span>' : ''}
+    </div>
+    <p class="text-muted text-sm mb-4">${esc(e.desc || 'Experimento do laboratório.')}</p>
+    <a href="${encodeURI(e.file)}" target="_blank" class="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium">
+      <i class="fas fa-external-link-alt"></i> Abrir</a>
+  </div>`;
+}
+let items = Object.entries(known).map(([file, m]) => ({ file, ...m }));
+const grid = document.getElementById('grid'), status = document.getElementById('sync-status');
+function render() {
+  items.sort((a, b) => (b.ts || 0) - (a.ts || 0) || a.name.localeCompare(b.name));
+  grid.innerHTML = items.map(card).join('');
+}
+async function lastCommit(file) {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${username}/${repo}/commits?path=${encodeURIComponent(file)}&per_page=1`);
+    const c = await r.json();
+    return Array.isArray(c) && c.length ? new Date(c[0].commit.author.date) : null;
+  } catch { return null; }
+}
+async function sync() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${username}/${repo}/contents`);
+    if (!r.ok) throw new Error(r.status);
+    const files = (await r.json()).filter(i => i.type === 'file' && /\.html$/i.test(i.name) && !ignore.includes(i.name.toLowerCase())).map(i => i.name);
+    items = items.filter(e => files.includes(e.file));
+    for (const f of files) if (!items.some(e => e.file === f)) items.push({ file: f, name: pretty(f), sub: 'Adicionado automaticamente' });
+    await Promise.all(items.map(async e => {
+      const d = await lastCommit(e.file);
+      if (d) { e.ts = d.getTime(); e.date = d.toLocaleDateString('pt-BR'); e.isNew = Date.now() - e.ts < 3 * 864e5; }
+    }));
+    render();
+    status.textContent = `${items.length} projetos · lista sincronizada com o GitHub`;
+  } catch (err) { status.textContent = 'Não consegui sincronizar com o GitHub agora; mostrando a lista salva.'; }
+}
+render(); sync();
+</script>
 </body>
 </html>
