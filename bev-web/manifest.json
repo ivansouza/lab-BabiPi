@@ -1,0 +1,46 @@
+{
+ "model": "avbiswas/bev-decider-0.4B",
+ "quant": "MatMulNBits 8-bit (block 32), embeddings int8 por linha",
+ "files": [
+  {
+   "name": "tokenizer.json",
+   "size": 11422654,
+   "sha": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+  },
+  {
+   "name": "tokenizer_config.json",
+   "size": 9732,
+   "sha": "d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101"
+  },
+  {
+   "name": "config.json",
+   "size": 830,
+   "sha": "f408f4ef02ee910fdc3e2790f1f0b48d4dd526beca39c89c9eeb947cae7f98fb"
+  },
+  {
+   "name": "embed_int8.bin",
+   "size": 155582464,
+   "sha": "a3ffd087acd70cb3e3b084ca9fdb6b85f7019d4425e0e0ef21c45d847f46f524",
+   "parts": [
+    "embed_int8.bin.part00",
+    "embed_int8.bin.part01"
+   ]
+  },
+  {
+   "name": "embed_scale_f32.bin",
+   "size": 607744,
+   "sha": "8c8c3ddd225a09f3d01080e345cfe54fa2566148f7bede943d979aeadd5dd2be"
+  },
+  {
+   "name": "bev_q8.onnx",
+   "size": 364863528,
+   "sha": "ab0d67686e49ea02aa6773771b6ca09140b5874017715c571ce518db078a2036",
+   "parts": [
+    "bev_q8.onnx.part00",
+    "bev_q8.onnx.part01",
+    "bev_q8.onnx.part02",
+    "bev_q8.onnx.part03"
+   ]
+  }
+ ]
+}

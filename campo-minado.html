@@ -129,7 +129,7 @@
         <!-- Novos botões de Autoplay e Configurações -->
         <div class="w-full flex justify-between items-center mb-4 gap-2">
             <button id="settings-btn" class="bg-gray-200 border border-gray-400 text-gray-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors hover:bg-gray-300">
-                <span>⚙️ API</span>
+                <span>⚙️ IA</span>
             </button>
             <button id="debug-toggle-btn" class="bg-gray-200 border border-gray-400 text-gray-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center gap-1 transition-colors hover:bg-gray-300">
                 <span>🐞 Log</span>
@@ -137,6 +137,12 @@
             <button id="autoplay-btn" class="bg-purple-100 border border-purple-400 text-purple-800 py-1 px-3 rounded shadow-sm font-semibold flex items-center justify-center gap-1 transition-colors hover:bg-purple-200 flex-1">
                 <span id="autoplay-text">🤖 Autoplay (Off)</span>
             </button>
+        </div>
+
+        <!-- Progresso do modelo no navegador -->
+        <div id="bev-progress-box" class="hidden w-full max-w-md mb-4">
+            <div class="flex justify-between text-xs text-gray-600 mb-1"><span id="bev-progress-label">Baixando bev...</span><span id="bev-progress-pct">0%</span></div>
+            <div class="w-full bg-gray-300 rounded h-2"><div id="bev-progress-bar" class="bg-purple-600 h-2 rounded" style="width:0%"></div></div>
         </div>
 
         <!-- Placa do Jogo -->
@@ -197,10 +203,20 @@
         <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 transform transition-all" id="settings-modal-content">
             <h2 class="text-2xl font-bold mb-2">Configurações</h2>
             <p class="text-sm text-gray-500 mb-4">O autoplay usa lógica local e consulta o bev só quando não há jogada certa.</p>
-            <label class="block text-gray-700 text-sm font-bold mb-2" for="api-url-input">Endereço do bev</label>
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="bev-mode-select">Modo da IA</label>
+            <select id="bev-mode-select" class="shadow border rounded w-full py-2 px-3 text-gray-700 mb-2">
+                <option value="navegador">IA no navegador (bev roda aqui, ~510 MB na 1ª vez)</option>
+                <option value="remoto">Servidor remoto (endereço + chave)</option>
+            </select>
+            <div id="bev-local-info" class="text-xs text-gray-500 mb-4">
+                <span id="bev-local-status">Modelo ainda não carregado.</span>
+                <button id="bev-local-load" class="ml-1 underline text-blue-700">Baixar agora</button>
+                <button id="bev-local-clear" class="ml-1 underline text-red-700">Apagar cache</button>
+            </div>
+            <div id="bev-remote-fields"><label class="block text-gray-700 text-sm font-bold mb-2" for="api-url-input">Endereço do bev</label>
             <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" id="api-url-input" type="url" placeholder="https://.../bev">
             <label class="block text-gray-700 text-sm font-bold mb-2" for="api-key-input">Chave</label>
-            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" id="api-key-input" type="password" placeholder="Chave do bev (fica só neste navegador)">
+            <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4" id="api-key-input" type="password" placeholder="Chave do bev (fica só neste navegador)"></div>
             <div class="flex justify-end gap-2 items-center">
                 <span id="settings-status" class="text-sm font-semibold hidden mr-auto"></span>
                 <button id="settings-cancel" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Cancelar</button>
@@ -600,6 +616,17 @@
         const BEV_URL_PADRAO = 'https://ubuntu.tail802ae4.ts.net/bev';
         let bevUrl = localStorage.getItem('bevUrl') || BEV_URL_PADRAO;
         let bevKey = localStorage.getItem('bevKey') || '';
+        let bevModo = localStorage.getItem('bevModo') || 'navegador';
+        const bevModeSelect = document.getElementById('bev-mode-select');
+        const bevRemoteFields = document.getElementById('bev-remote-fields');
+        const bevLocalInfo = document.getElementById('bev-local-info');
+        const bevLocalStatus = document.getElementById('bev-local-status');
+        const atualizarCamposModo = () => {
+            const remoto = bevModeSelect.value === 'remoto';
+            bevRemoteFields.classList.toggle('hidden', !remoto);
+            bevLocalInfo.classList.toggle('hidden', remoto);
+        };
+        bevModeSelect.addEventListener('change', atualizarCamposModo);
 
         // Funções de Depuração (Log)
         debugToggleBtn.addEventListener('click', () => {
@@ -645,6 +672,8 @@
         function abrirConfig() {
             apiUrlInput.value = bevUrl;
             apiKeyInput.value = bevKey;
+            bevModeSelect.value = bevModo;
+            atualizarCamposModo();
             settingsStatus.classList.add('hidden');
             settingsModal.classList.remove('hidden');
         }
@@ -656,6 +685,8 @@
             bevKey = apiKeyInput.value.trim();
             localStorage.setItem('bevUrl', bevUrl);
             localStorage.setItem('bevKey', bevKey);
+            bevModo = bevModeSelect.value;
+            localStorage.setItem('bevModo', bevModo);
             settingsStatus.textContent = 'Salvo! ✅';
             settingsStatus.className = 'text-sm font-semibold text-green-600 mr-auto';
             settingsStatus.classList.remove('hidden');
@@ -698,7 +729,7 @@
                 if (isAutoplayRunning && !isGameOver) {
                     autoplayText.textContent = '⏹️ Parar Autoplay';
                     // Jogadas lógicas são rápidas; consultas ao bev respeitam o rate limit
-                    autoplayTimeout = setTimeout(runAutoplayLoop, usouBev ? 2100 : 300);
+                    autoplayTimeout = setTimeout(runAutoplayLoop, usouBev ? (bevModo === 'remoto' ? 2100 : 400) : 300);
                 } else {
                     stopAutoplay();
                 }
@@ -710,6 +741,97 @@
                 autoplayText.textContent = 'Erro de IA';
                 setTimeout(() => { if (!isGameOver && !isAutoplayRunning) autoplayText.textContent = '🤖 Autoplay (Off)'; }, 4000);
             }
+        }
+
+        // --- bev no navegador (onnxruntime-web, modelo em ./bev-web/) ---
+        const BEV_WEB_BASE = new URL('bev-web/', location.href).href;
+        const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.all.bundle.min.mjs';
+        const TOK_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/tokenizers@0.2.0/dist/tokenizers.min.mjs';
+        let bevLocal = null, bevLocalPromise = null;
+        const progBox = document.getElementById('bev-progress-box');
+        const progBar = document.getElementById('bev-progress-bar');
+        const progPct = document.getElementById('bev-progress-pct');
+        const progLabel = document.getElementById('bev-progress-label');
+
+        function carregarBevLocal() {
+            if (bevLocal) return Promise.resolve(bevLocal);
+            if (bevLocalPromise) return bevLocalPromise;
+            bevLocalPromise = (async () => {
+                const t0 = performance.now();
+                progBox.classList.remove('hidden');
+                progLabel.textContent = 'Baixando bev (fica em cache depois)...';
+                bevLocalStatus.textContent = 'Carregando...';
+                logDebug('📦 Carregando bev no navegador...');
+                const [ort, tk, mod] = await Promise.all([import(ORT_URL), import(TOK_URL), import(BEV_WEB_BASE + 'bev-web.js')]);
+                ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
+                let ultimo = 0;
+                const onProgress = (got, total) => {
+                    const pct = Math.floor(100 * got / total);
+                    if (pct === ultimo) return; ultimo = pct;
+                    progBar.style.width = pct + '%';
+                    progPct.textContent = `${pct}% (${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)} MB)`;
+                };
+                // WebGPU do onnxruntime-web ainda não suporta MatMulNBits de 8 bits; usa WASM (SIMD)
+                const tentativas = [['wasm']];
+                let erro;
+                for (const eps of tentativas) {
+                    try {
+                        progLabel.textContent = eps[0] === 'webgpu' ? 'Preparando bev (WebGPU)...' : 'Preparando bev (WASM)...';
+                        const b = await mod.BevWeb.load({ base: BEV_WEB_BASE, ort, Tokenizer: tk.Tokenizer, onProgress, executionProviders: eps });
+                        // aquecimento: confirma que o backend realmente executa
+                        await b.decide('test', { q: { type: 'noul', instructions: 'ok?' } });
+                        bevLocal = b;
+                        break;
+                    } catch (e) {
+                        erro = e;
+                        logDebug(`Backend ${eps[0]} falhou: ${e.message || e}`, true);
+                    }
+                }
+                if (!bevLocal) throw erro || new Error('falha ao carregar o bev');
+                progBox.classList.add('hidden');
+                const seg = ((performance.now() - t0) / 1000).toFixed(1);
+                bevLocalStatus.textContent = `Pronto (${bevLocal.eps[0]}).`;
+                logDebug(`✅ bev carregado no navegador (${bevLocal.eps[0]}) em ${seg}s`);
+                return bevLocal;
+            })().catch((e) => {
+                bevLocalPromise = null;
+                progBox.classList.add('hidden');
+                bevLocalStatus.textContent = 'Erro ao carregar: ' + (e.message || e);
+                throw e;
+            });
+            return bevLocalPromise;
+        }
+
+        document.getElementById('bev-local-load').addEventListener('click', () => carregarBevLocal().catch((e) => logDebug(`Erro: ${e.message}`, true)));
+        document.getElementById('bev-local-clear').addEventListener('click', async () => {
+            if (typeof caches !== 'undefined') await caches.delete('bev-web-v1');
+            bevLocal = null; bevLocalPromise = null;
+            bevLocalStatus.textContent = 'Cache apagado.';
+            logDebug('🗑️ Cache do bev apagado.');
+        });
+
+        // Mesmo formato de resposta nos dois modos: {answers, latency_ms}
+        async function consultarBev(payload) {
+            if (bevModo !== 'remoto') {
+                const b = await carregarBevLocal();
+                const t = performance.now();
+                const answers = await b.decide(payload.state, payload.questions);
+                return { answers, latency_ms: Math.round(performance.now() - t) };
+            }
+            let response;
+            try {
+                response = await fetch(bevUrl.replace(/\/+$/, '') + '/v1/systemone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + bevKey },
+                    body: JSON.stringify(payload)
+                });
+            } catch (e) {
+                throw new Error(`Falha de rede ao acessar o bev (${bevUrl})`);
+            }
+            if (response.status === 401) throw new Error('Chave do bev inválida (401)');
+            if (response.status === 429) throw new Error('Limite de requisições do bev atingido (429)');
+            if (!response.ok) throw new Error(`bev respondeu ${response.status}: ${(await response.text()).slice(0, 200)}`);
+            return response.json();
         }
 
         // --- Solucionador determinístico (regras certas) ---
@@ -794,7 +916,7 @@
             }
 
             // 3) Sem jogada certa: pergunta ao bev qual célula cavar
-            if (!bevKey) {
+            if (bevModo === 'remoto' && !bevKey) {
                 logDebug('Sem jogada certa e sem chave do bev. Configure em ⚙️.', true);
                 abrirConfig();
                 throw new Error('Chave do bev não configurada');
@@ -838,22 +960,8 @@
                 }
             };
 
-            logDebug(`🤔 Sem jogada certa. Consultando bev com ${candidatos.length} opções...`);
-            let response;
-            try {
-                response = await fetch(bevUrl.replace(/\/+$/, '') + '/v1/systemone', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + bevKey },
-                    body: JSON.stringify(payload)
-                });
-            } catch (e) {
-                throw new Error(`Falha de rede ao acessar o bev (${bevUrl})`);
-            }
-            if (response.status === 401) throw new Error('Chave do bev inválida (401)');
-            if (response.status === 429) throw new Error('Limite de requisições do bev atingido (429)');
-            if (!response.ok) throw new Error(`bev respondeu ${response.status}: ${(await response.text()).slice(0, 200)}`);
-
-            const data = await response.json();
+            logDebug(`🤔 Sem jogada certa. Consultando bev (${bevModo === 'remoto' ? 'servidor' : 'navegador'}) com ${candidatos.length} opções...`);
+            const data = await consultarBev(payload);
             const ans = data.answers && data.answers.jogada;
             if (!ans || !ans.choice) throw new Error('Formato de resposta inesperado do bev');
             const m = ans.choice.match(/^(cavar|bandeira) (\d+),(\d+)$/);
