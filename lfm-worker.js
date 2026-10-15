@@ -1,11 +1,25 @@
 // Web Worker do Campo Minado 3: LFM2-350M via Transformers.js (modelo baixado do Hugging Face)
-import { AutoTokenizer, AutoModelForCausalLM, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1';
+import { AutoTokenizer, AutoModelForCausalLM, Tensor, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1';
 const MODEL_ID = 'onnx-community/LFM2-350M-ONNX';
 const LETRAS = 'ABCDEFGH'.split('');
-let tok = null, model = null, backend = null, letraIds = null;
+let tok = null, model = null, backend = null, letraIds = null, gpuPerdida = false;
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 env.backends.onnx.wasm.numThreads = 1;
+
+// Forward único pedindo só os logits da última posição (num_logits_to_keep = 1):
+// evita ler ~T x 65k logits da GPU, que derrubava o WebGPU no celular.
+async function rodar(inp) {
+  if (gpuPerdida) throw new Error('GPU perdida (device lost)');
+  return model({ input_ids: inp.input_ids, attention_mask: inp.attention_mask, num_logits_to_keep: new Tensor('int64', [1n], []) });
+}
+
+async function vigiarGPU() {
+  try {
+    const dev = await env.backends.onnx.webgpu.device;
+    if (dev && dev.lost) dev.lost.then((info) => { gpuPerdida = true; postMessage({ type: 'gpu', estado: 'perdida', erro: info && info.message || '' }); });
+  } catch (_) {}
+}
 
 async function cacheStatus() {
   if (typeof caches === 'undefined') return { cached: {} };
@@ -29,13 +43,16 @@ self.onmessage = async ({ data }) => {
     } else if (type === 'load') {
       const { cached } = await cacheStatus();
       tok = await AutoTokenizer.from_pretrained(MODEL_ID);
-      letraIds = LETRAS.map((l) => tok.encode(l, { add_special_tokens: false })[0]);
+      letraIds = LETRAS.map((l) => tok.encode(' ' + l, { add_special_tokens: false })[0]); // ' A'..' H' depois do prefixo 'Option'
       const tentativas = [];
       if (self.navigator && navigator.gpu && !data.forceWasm) {
-        try { if (await navigator.gpu.requestAdapter()) tentativas.push({ device: 'webgpu', dtype: 'q4f16' }); } catch (e) {}
+        try { if (await navigator.gpu.requestAdapter()) tentativas.push({ device: 'webgpu', dtype: 'q4' }); } catch (e) {}
       }
-      // q4 e q8 usam GatherBlockQuantized, que o WASM do onnxruntime-web não implementa: no WASM vai direto para fp16
-      tentativas.push({ device: 'wasm', dtype: 'fp16' });
+      // q4 e q8 usam GatherBlockQuantized, que o WASM do onnxruntime-web não implementa: no WASM vai direto para fp16.
+      // Se havia WebGPU e ela falhou, NÃO baixa os ~692 MB do WASM sozinho: a página oferece o botão "usar CPU (WASM)".
+      if (!tentativas.length) tentativas.push({ device: 'wasm', dtype: 'fp16' });
+      if (model) { try { await model.dispose(); } catch (_) {} model = null; }
+      gpuPerdida = false;
       const erros = [];
       for (const t of tentativas) {
         const arquivo = t.dtype === 'q8' ? 'quantized' : t.dtype;
@@ -53,9 +70,9 @@ self.onmessage = async ({ data }) => {
             },
           });
           postMessage({ type: 'progress', phase: 'warmup', backend: t.device });
-          const inp = tok('ok', { add_special_tokens: false });
-          await model(inp);
           backend = t;
+          if (t.device === 'webgpu') vigiarGPU();
+          await rodar(tok('ok', { add_special_tokens: false }));
           let bytes = 0; for (const f of files.values()) bytes += f.total;
           postMessage({ id, ok: true, result: { device: t.device, dtype: t.dtype, bytes, fromCache: doCache, erros } });
           return;
@@ -66,19 +83,33 @@ self.onmessage = async ({ data }) => {
           model = null;
         }
       }
-      throw new Error('nenhum backend funcionou: ' + erros.join(' | '));
+      const err = new Error('nenhum backend funcionou: ' + erros.join(' | '));
+      throw Object.assign(err, { webgpu: tentativas[0].device === 'webgpu' });
     } else if (type === 'decide') {
       const { board, opcoes } = data;
-      const content = `Minesweeper. Board (rows and columns are 0-indexed; ? = hidden, F = flag, _ = empty, numbers = adjacent mines):\n${board}\n\n` +
-        `No certain move exists. Which hidden cell is the safest to dig? Options:\n` +
-        opcoes.map((o, i) => `${LETRAS[i]}) cell ${o.r},${o.c}, estimated mine risk ${o.risco}%`).join('\n') +
-        `\n\nAnswer with only the letter of the safest option.`;
-      const text = tok.apply_chat_template([{ role: 'user', content }], { tokenize: false, add_generation_prompt: true });
+      // Prompt curto (~140 tokens); a resposta do assistente começa com 'Option' e lemos a próxima letra
+      const content = `Minesweeper: choose the safest hidden cell to dig (lowest mine risk).\n` +
+        opcoes.map((o, i) => `${LETRAS[i]}) cell ${o.r},${o.c}: ${o.risco}% risk`).join('\n') +
+        `\nReply with the letter only.`;
+      const text = tok.apply_chat_template([{ role: 'user', content }], { tokenize: false, add_generation_prompt: true }) + 'Option';
       const inp = tok(text, { add_special_tokens: false });
+      const T = inp.input_ids.dims[1];
       const t0 = performance.now();
-      const out = await model(inp);
-      const lg = out.logits, [, T, V] = lg.dims;
-      let row = lg.data.slice((T - 1) * V, T * V);
+      let out;
+      try {
+        out = await rodar(inp);
+      } catch (e) {
+        // WebGPU: tenta recriar a sessão uma vez (o modelo já está no cache) e repetir
+        if (backend && backend.device === 'webgpu') {
+          postMessage({ type: 'gpu', estado: 'recriando', erro: String(e && e.message || e) });
+          try { await model.dispose(); } catch (_) {}
+          model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, { device: 'webgpu', dtype: backend.dtype });
+          gpuPerdida = false; vigiarGPU();
+          out = await rodar(inp);
+        } else throw e;
+      }
+      const lg = out.logits, V = lg.dims[lg.dims.length - 1], P = lg.dims[1];
+      let row = lg.data.slice((P - 1) * V, P * V);
       if (row instanceof Uint16Array) { // float16 em Uint16Array
         const f = new Float32Array(V);
         for (let i = 0; i < V; i++) { const h = row[i], s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 31, m = h & 1023;
@@ -93,6 +124,6 @@ self.onmessage = async ({ data }) => {
       postMessage({ id, ok: true, result: { logprobs, top: tok.decode([topId]), tokens: T, ms: Math.round(performance.now() - t0) } });
     }
   } catch (e) {
-    postMessage({ id, ok: false, error: String(e && e.message || e) });
+    postMessage({ id, ok: false, error: String(e && e.message || e), webgpu: !!(e && e.webgpu) || (backend && backend.device === 'webgpu' && type === 'decide') });
   }
 };

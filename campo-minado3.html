@@ -210,7 +210,7 @@
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 transform transition-all" id="settings-modal-content">
             <h2 class="text-2xl font-bold mb-2">IA no navegador</h2>
-            <p class="text-sm text-gray-500 mb-4">O autoplay usa lógica local e consulta o LFM2-350M (Liquid AI, rodando aqui no navegador via Transformers.js; ~255 MB com WebGPU ou ~692 MB em WASM (fp16) na 1ª vez, baixado do Hugging Face) só quando não há jogada certa.</p>
+            <p class="text-sm text-gray-500 mb-4">O autoplay usa lógica local e consulta o LFM2-350M (Liquid AI, rodando aqui no navegador via Transformers.js; ~294 MB com WebGPU ou ~692 MB em WASM (fp16) na 1ª vez, baixado do Hugging Face) só quando não há jogada certa.</p>
             <div class="flex flex-wrap gap-2 mb-4">
                 <button id="bev-local-load" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded">Baixar / carregar modelo</button>
                 <button id="bev-local-clear" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded">Apagar cache</button>
@@ -723,7 +723,8 @@
         }
         const MB = (b) => (b / 1048576).toFixed(0);
         const temWebGPU = !!navigator.gpu;
-        const TAMANHO_ESTIMADO = temWebGPU ? '~255 MB (WebGPU q4f16)' : '~692 MB (WASM fp16)';
+        const TAMANHO_ESTIMADO = temWebGPU ? '~294 MB (WebGPU q4)' : '~692 MB (WASM fp16)';
+        let usarWasm = false, gpuFalhou = false;
 
         let lfmWorker = null, lfmMsgId = 0, lfmPendentes = new Map();
         let lfmPronto = false, lfmCarregando = null, lfmInfo = null;
@@ -733,9 +734,10 @@
                 lfmWorker = new Worker(new URL('lfm-worker.js', location.href), { type: 'module' });
                 lfmWorker.onmessage = ({ data }) => {
                     if (data.type === 'progress') return onProgresso(data);
+                    if (data.type === 'gpu') return onGPU(data);
                     const p = lfmPendentes.get(data.id); if (!p) return;
                     lfmPendentes.delete(data.id);
-                    data.ok ? p.resolve(data.result) : p.reject(new Error(data.error));
+                    data.ok ? p.resolve(data.result) : p.reject(Object.assign(new Error(data.error), { webgpu: !!data.webgpu }));
                 };
                 lfmWorker.onerror = (e) => {
                     const err = new Error('Falha no worker do LFM2: ' + (e.message || 'erro ao iniciar'));
@@ -765,10 +767,25 @@
             progPct.textContent = `${pct.toFixed(0)}% · ${MB(d.got)} / ${MB(d.total)} MB`;
         }
 
+        function oferecerCPU(motivo) {
+            gpuFalhou = true;
+            mostrarStatus('erro', `⚠️ ${motivo} Os chutes usam a célula de menor risco por enquanto. Toque para usar a CPU (WASM, ~692 MB).`, { botao: 'usar CPU (WASM)' });
+        }
+        function onGPU(d) {
+            if (d.estado === 'perdida') { logDebug(`⚠️ GPU perdida (device lost) ${d.erro || ''}`, true); oferecerCPU('A GPU (WebGPU) parou de responder.'); }
+            else if (d.estado === 'recriando') logDebug(`♻️ Erro no WebGPU, recriando a sessão: ${d.erro}`, true);
+        }
+        function trocarParaCPU() {
+            usarWasm = true; gpuFalhou = false; lfmPronto = false; lfmCarregando = null;
+            if (lfmWorker) { lfmWorker.terminate(); lfmWorker = null; }
+            lfmPendentes.clear();
+            carregarBevLocal().catch(() => {});
+        }
+
         async function verificarBev() {
             try {
                 const st = await chamarWorker('status');
-                const algum = st.cached[temWebGPU ? 'q4f16' : 'fp16'];
+                const algum = st.cached[temWebGPU ? 'q4' : 'fp16'];
                 if (algum) carregarBevLocal().catch(() => {});
                 else mostrarStatus('aviso', `📦 É preciso baixar o modelo LFM2-350M (${TAMANHO_ESTIMADO}, do Hugging Face) para a IA chutar quando não houver jogada certa.`, { botao: 'Baixar' });
             } catch (e) {
@@ -783,7 +800,7 @@
             mostrarStatus('carregando', '⏳ Carregando o modelo LFM2…', { progresso: true });
             progBar.style.width = '0%'; progPct.textContent = '0%'; progLabel.textContent = '';
             logDebug('📦 Carregando LFM2-350M no navegador (Web Worker)...');
-            lfmCarregando = chamarWorker('load', { forceWasm: new URLSearchParams(location.search).has('wasm') }).then((r) => {
+            lfmCarregando = chamarWorker('load', { forceWasm: usarWasm || new URLSearchParams(location.search).has('wasm') }).then((r) => {
                 lfmPronto = true; lfmInfo = r;
                 const seg = ((performance.now() - t0) / 1000).toFixed(1);
                 const be = `${r.device === 'webgpu' ? 'WebGPU' : 'WASM'} ${r.dtype}`;
@@ -791,7 +808,8 @@
                 logDebug(`✅ LFM2 carregado (${be}, ${MB(r.bytes)} MB) em ${seg}s${r.erros.length ? ' — falhas antes: ' + r.erros.join(' | ') : ''}`);
             }).catch((e) => {
                 lfmCarregando = null;
-                mostrarStatus('erro', `❌ Erro ao carregar o modelo: ${e.message}`, { botao: 'Tentar de novo' });
+                if (e.webgpu) oferecerCPU(`O WebGPU falhou ao carregar (${e.message.slice(0, 120)}).`);
+                else mostrarStatus('erro', `❌ Erro ao carregar o modelo: ${e.message}`, { botao: 'Tentar de novo' });
                 logDebug(`Erro ao carregar o LFM2: ${e.message}`, true);
                 if (lfmWorker) { lfmWorker.terminate(); lfmWorker = null; }
                 throw e;
@@ -799,7 +817,7 @@
             return lfmCarregando;
         }
 
-        statusBtn.addEventListener('click', () => carregarBevLocal().catch(() => {}));
+        statusBtn.addEventListener('click', () => (statusBtn.textContent.includes('CPU') ? trocarParaCPU() : carregarBevLocal().catch(() => {})));
         document.getElementById('bev-local-load').addEventListener('click', () => {
             settingsModal.classList.add('hidden');
             carregarBevLocal().catch(() => {});
@@ -820,10 +838,15 @@
         // Pergunta ao LFM2 qual opção (A–H) é a mais segura, com cronômetro visível.
         // Retorna o índice escolhido em `opcoes` (fallback: 0 = menor risco).
         async function consultarLFM(board, opcoes) {
+            if (gpuFalhou) {
+                logDebug(`🎲 WebGPU indisponível → menor risco: cavar ${opcoes[0].r},${opcoes[0].c} (${opcoes[0].risco}%)`);
+                lfmStats.fallback++;
+                return 0;
+            }
             if (!lfmPronto) {
                 if (!lfmCarregando) {
                     const st = await chamarWorker('status');
-                    if (!(st.cached.q4f16 || st.cached.fp16)) {
+                    if (!(st.cached.q4 || st.cached.fp16)) {
                         mostrarStatus('aviso', `📦 O autoplay precisa do LFM2: baixe o modelo (${TAMANHO_ESTIMADO}) e ligue o autoplay de novo.`, { botao: 'Baixar' });
                         throw new Error('Modelo LFM2 ainda não baixado');
                     }
@@ -850,7 +873,15 @@
                 logDebug(`🧠 LFM2: ${fallback ? `resposta ilegível (top="${r.top}", massa das letras ${(massa * 100).toFixed(0)}%) → menor risco` : `opção ${L} (p=${Math.exp(lp[best]).toFixed(2)}, massa ${(massa * 100).toFixed(0)}%)`} → cavar ${opcoes[best].r},${opcoes[best].c} (risco ${opcoes[best].risco}%) em ${Math.round(ms)} ms, ${r.tokens} tokens`);
                 return best;
             } catch (e) {
-                timerEl.textContent = `❌ LFM2 falhou após ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+                const seg = ((performance.now() - t0) / 1000).toFixed(1);
+                if (e.webgpu) {
+                    timerEl.textContent = `❌ WebGPU falhou após ${seg} s → menor risco (${opcoes[0].r},${opcoes[0].c})`;
+                    logDebug(`❌ Erro no WebGPU (${seg} s): ${e.message}`, true);
+                    oferecerCPU('Erro na inferência pelo WebGPU.');
+                    lfmStats.fallback++;
+                    return 0;
+                }
+                timerEl.textContent = `❌ LFM2 falhou após ${seg} s`;
                 mostrarStatus('erro', `❌ Erro na inferência do LFM2: ${e.message}`);
                 throw e;
             } finally {
@@ -970,8 +1001,11 @@
                 .slice(0, 8)
                 .map(x => x[0]);
 
-            const opcoes = candidatos.map(([r, c]) => ({ r, c, risco: Math.round(risco([r, c]) * 100) }));
-            const tabuleiro = montarEstado().split('\n').slice(3).join('\n');
+            const simb = (r, c) => { if (r < 0 || c < 0 || r >= rows || c >= cols) return '#'; const cell = board[r][c];
+                return cell.isRevealed ? String(cell.neighborMines || '_') : (cell.isFlagged ? 'F' : '?'); };
+            const viz3 = (r, c) => [-1, 0, 1].map((a) => [-1, 0, 1].map((b) => simb(r + a, c + b)).join('')).join('/');
+            const opcoes = candidatos.map(([r, c]) => ({ r, c, risco: Math.round(risco([r, c]) * 100), viz: viz3(r, c) }));
+            const tabuleiro = '';
             logDebug(`🤔 Sem jogada certa. Consultando LFM2 com ${opcoes.length} opções (menor risco: ${opcoes[0].r},${opcoes[0].c} = ${opcoes[0].risco}%)...`);
             const i = await consultarLFM(tabuleiro, opcoes);
             executarJogada('cavar', opcoes[i].r, opcoes[i].c);
