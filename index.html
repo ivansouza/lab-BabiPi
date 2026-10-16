@@ -269,11 +269,11 @@ body {
 const username = 'ivansouza', repo = 'lab-BabiPi';
 
 const known = {
-  'campo-minado.html': { icon: '💣', name: 'Campo Minado', sub: 'Jogo + IA (bev)', desc: 'Campo Minado clássico com 3 dificuldades, modo bandeira no celular e autoplay: um solver lógico faz as jogadas certas.' },
-  'lista-compras.html': { icon: '🛒', name: 'Lista de Compras', sub: 'App web responsivo', desc: 'Lista de compras interativa com adicionar, editar, excluir e marcar itens. Design otimizado para celular.' },
-  'shader.html': { icon: '✨', name: 'Shader 3D', sub: 'Three.js', desc: 'Experimento visual em 3D com cubos animados e iluminação, feito com Three.js.' },
-  'plasma-vortex.html': { icon: '🌀', name: 'Plasma Vortex', sub: 'WebGL2 / GLSL', desc: 'Visualização cinematográfica de plasma usando shaders WebGL2 com efeito vortex animado.' },
-  'plasma-vortex-novo.html': { icon: '🌀', name: 'Plasma Vortex Novo', sub: 'WebGL2 / GLSL', desc: 'Versão aprimorada do Plasma Vortex com renderização otimizada.' },
+  'campo-minado.html': { icon: 'fa-bomb', name: 'Campo Minado', sub: 'Jogo + IA (bev)', desc: 'Campo Minado clássico com 3 dificuldades, modo bandeira no celular e autoplay: um solver lógico faz as jogadas certas.' },
+  'lista-compras.html': { icon: 'fa-shopping-cart', name: 'Lista de Compras', sub: 'App web responsivo', desc: 'Lista de compras interativa com adicionar, editar, excluir e marcar itens. Design otimizado para celular.' },
+  'shader.html': { icon: 'fa-star', name: 'Shader 3D', sub: 'Three.js', desc: 'Experimento visual em 3D com cubos animados e iluminação, feito com Three.js.' },
+  'plasma-vortex.html': { icon: 'fa-swirly', name: 'Plasma Vortex', sub: 'WebGL2 / GLSL', desc: 'Visualização cinematográfica de plasma usando shaders WebGL2 com efeito vortex animado.' },
+  'plasma-vortex-novo.html': { icon: 'fa-swirly', name: 'Plasma Vortex Novo', sub: 'WebGL2 / GLSL', desc: 'Versão aprimorada do Plasma Vortex com renderização otimizada.' },
 };
 
 const ignore = ['index.html'];
@@ -289,7 +289,7 @@ function card(e) {
     <div class="glass-card p-6 gsap-card">
       <div class="flex items-start justify-between mb-4">
         <div class="flex items-center gap-4">
-          <span class="text-4xl">${e.icon}</span>
+          <i class="fa ${e.icon} text-4xl"></i>
           <div>
             <h3 class="text-xl font-semibold text-white mb-1">${esc(e.name)}</h3>
             <p class="text-muted text-xs font-mono">${esc(e.sub || '')}</p>
