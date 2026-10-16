@@ -6,135 +6,318 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>lab-BabiPi — Laboratório</title>
+<title>Aurel Liquid Hero — lab-BabiPi</title>
+
+<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<!-- GSAP for animations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+        serif: ['Playfair Display', 'serif'],
+      },
+      colors: {
+        aurel: {
+          gold: '#f59e0b',
+          amber: '#fbbf24',
+          cyan: '#38bdf8',
+          violet: '#8b5cf6',
+          rose: '#fb7185',
+          emerald: '#34d399',
+        }
+      },
+      animation: {
+        'liquid': 'liquid 8s ease-in-out infinite',
+        'float': 'float 6s ease-in-out infinite',
+        'pulse-glow': 'pulse-glow 3s ease-in-out infinite',
+        'fade-up': 'fade-up 0.8s ease-out forwards',
+      },
+      keyframes: {
+        liquid: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '25%': { transform: 'translate(30px, -30px) scale(1.1)' },
+          '50%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+          '75%': { transform: 'translate(20px, 10px) scale(1.05)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-20px)' },
+        },
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 20px rgba(245, 158, 11, 0.3)' },
+          '50%': { boxShadow: '0 0 40px rgba(245, 158, 11, 0.6)' },
+        },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(30px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        }
+      }
+    }
+  }
+}
+</script>
+
+<style>
 :root {
-  --bg: #060816;
-  --bg-soft: #0c1224;
-  --panel: rgba(10, 15, 31, 0.78);
-  --panel-strong: rgba(15, 23, 42, 0.94);
-  --line: rgba(148, 163, 184, 0.14);
-  --text: #e5eefc;
-  --muted: #8b9bb7;
+  --bg-deep: #03050d;
+  --bg-mid: #070b17;
+  --gold: #f59e0b;
   --cyan: #38bdf8;
   --violet: #8b5cf6;
-  --emerald: #34d399;
-  --amber: #f59e0b;
-  --rose: #fb7185;
 }
-
-* { box-sizing: border-box; }
 
 body {
   margin: 0;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
-  color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 30%),
-    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
-    radial-gradient(circle at bottom center, rgba(52, 211, 153, 0.08), transparent 30%),
-    linear-gradient(180deg, #03050d 0%, #070b17 40%, #060816 100%);
+  color: #e5eefc;
+  background: var(--bg-deep);
+  overflow-x: hidden;
 }
 
-.app-shell {
-  width: min(1200px, calc(100vw - 24px));
-  margin: 24px auto;
+/* Cinematic liquid background */
+.liquid-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: -1;
+  overflow: hidden;
 }
 
-.glass {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 16px;
+.liquid-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  animation: liquid 8s ease-in-out infinite;
 }
 
-.card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.liquid-blob:nth-child(1) {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, var(--gold), transparent 70%);
+  top: -200px; left: -100px;
+  animation-delay: 0s;
 }
 
-.card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.45);
+.liquid-blob:nth-child(2) {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, var(--cyan), transparent 70%);
+  top: 50%; right: -150px;
+  animation-delay: -2s;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
+.liquid-blob:nth-child(3) {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, var(--violet), transparent 70%);
+  bottom: -100px; left: 30%;
+  animation-delay: -4s;
+}
+
+/* Glassmorphism */
+.glass-premium {
+  background: rgba(10, 15, 31, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+}
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 20px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(245, 158, 11, 0.3);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.5), 0 0 30px rgba(245, 158, 11, 0.15);
+}
+
+/* Typography */
+.title-hero {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 30%, #38bdf8 60%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.subtitle-hero {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-weight: 300;
+  color: rgba(229, 238, 252, 0.6);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Gradient buttons */
+.btn-gradient {
+  background: linear-gradient(135deg, var(--gold), var(--cyan));
+  color: #03050d;
   font-weight: 600;
+  padding: 14px 32px;
+  border-radius: 999px;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
 }
 
+.btn-gradient:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+}
+
+/* Grid */
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.3); border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<div class="app-shell">
-  <!-- Header -->
-  <header class="mb-8">
-    <div class="flex items-center gap-3 mb-2">
-      <span class="text-3xl">🧪</span>
-      <h1 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-violet-400 bg-clip-text text-transparent">
-        lab-BabiPi
-      </h1>
-    </div>
-    <p class="text-muted text-sm">Laboratório interativo de Ivan Souza</p>
-  </header>
-
-  <!-- Grid de projetos (gerado automaticamente) -->
-  <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-  <p id="sync-status" class="text-muted text-xs mt-4"></p>
-
-  <!-- Footer -->
-  <footer class="mt-12 text-center text-muted text-xs">
-    <p>lab-BabiPi &copy; 2026 — Ivan Souza</p>
-  </footer>
+<!-- Liquid Background -->
+<div class="liquid-bg">
+  <div class="liquid-blob"></div>
+  <div class="liquid-blob"></div>
+  <div class="liquid-blob"></div>
 </div>
+
+<!-- Hero Section -->
+<section class="min-h-screen flex items-center justify-center relative px-4">
+  <div class="text-center max-w-5xl mx-auto">
+    <div class="gsap-fade-up">
+      <p class="subtitle-hero mb-4 tracking-widest">Laboratório do Pi · BabiPi Agent</p>
+      <h1 class="title-hero mb-6">Aurel Liquid Hero</h1>
+      <p class="text-muted text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
+        Onde luz, água e tipografia editorial se movem como um único sinal. 
+        Experimentos interativos criados pelo agente BabiPi.
+      </p>
+      <div class="flex flex-wrap justify-center gap-4">
+        <a href="#projects" class="btn-gradient">
+          <i class="fas fa-flask mr-2"></i> Explorar Projetos
+        </a>
+        <a href="https://github.com/ivansouza/lab-BabiPi" target="_blank" class="glass-card px-6 py-3 text-sm font-medium hover:border-amber-500/30">
+          <i class="fab fa-github mr-2"></i> GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-10 left-1/2 -translate-x-1/2 gsap-fade-up">
+    <div class="w-6 h-10 border-2 border-white/20 rounded-full flex justify-center p-1">
+      <div class="w-1 h-2 bg-amber-500 rounded-full animate-bounce"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Projects Section -->
+<section id="projects" class="py-24 px-4">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-16 gsap-fade-up">
+      <h2 class="text-4xl font-bold mb-4 bg-gradient-to-r from-amber-400 to-cyan-400 bg-clip-text text-transparent">
+        Projetos do Laboratório
+      </h2>
+      <p class="text-muted text-lg">Cada HTML é uma ilha — autossuficiente, exploratória, muitas vezes alucinada.</p>
+    </div>
+    
+    <div id="grid" class="projects-grid"></div>
+    
+    <p id="sync-status" class="text-muted text-xs text-center mt-12"></p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="py-12 px-4 border-t border-white/5">
+  <div class="max-w-7xl mx-auto text-center text-muted text-sm">
+    <p>lab-BabiPi &copy; 2026 — Ivan Souza · Feito com <span class="text-rose-400">♥</span> e BabiPi</p>
+  </div>
+</footer>
 
 <script>
 const username = 'ivansouza', repo = 'lab-BabiPi';
-// Metadados opcionais: arquivos que não estiverem aqui aparecem sozinhos, varridos do GitHub
+
 const known = {
-  'campo-minado.html': { icon: '💣', name: 'Campo Minado', sub: 'Jogo + IA (bev)', desc: 'Campo Minado clássico com 3 dificuldades, modo bandeira no celular e autoplay: um solver lógico faz as jogadas certas e o modelo de decisão bev escolhe os chutes.' },
-  'lista-compras.html': { icon: '🛒', name: 'Lista de Compras', sub: 'App web responsivo', desc: 'Lista de compras interativa com adicionar, editar, excluir e marcar itens como "no carrinho". Design otimizado para celular.' },
+  'campo-minado.html': { icon: '💣', name: 'Campo Minado', sub: 'Jogo + IA (bev)', desc: 'Campo Minado clássico com 3 dificuldades, modo bandeira no celular e autoplay: um solver lógico faz as jogadas certas.' },
+  'lista-compras.html': { icon: '🛒', name: 'Lista de Compras', sub: 'App web responsivo', desc: 'Lista de compras interativa com adicionar, editar, excluir e marcar itens. Design otimizado para celular.' },
   'shader.html': { icon: '✨', name: 'Shader 3D', sub: 'Three.js', desc: 'Experimento visual em 3D com cubos animados e iluminação, feito com Three.js.' },
+  'plasma-vortex.html': { icon: '🌀', name: 'Plasma Vortex', sub: 'WebGL2 / GLSL', desc: 'Visualização cinematográfica de plasma usando shaders WebGL2 com efeito vortex animado.' },
+  'plasma-vortex-novo.html': { icon: '🌀', name: 'Plasma Vortex Novo', sub: 'WebGL2 / GLSL', desc: 'Versão aprimorada do Plasma Vortex com renderização otimizada.' },
 };
+
 const ignore = ['index.html'];
 const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
 function pretty(file) {
   const b = file.replace(/\.html$/i, '').replace(/[-_]+/g, ' ').trim();
   return b.charAt(0).toUpperCase() + b.slice(1);
 }
+
 function card(e) {
-  return `<div class="glass card-hover p-6">
-    <div class="flex items-start justify-between mb-4">
-      <div class="flex items-center gap-3">
-        <span class="text-3xl">${e.icon || '🧪'}</span>
-        <div><h2 class="text-lg font-semibold text-white">${esc(e.name)}</h2>
-        <p class="text-muted text-xs">${esc(e.sub || '')}${e.date ? ' · ' + e.date : ''}</p></div>
+  return `
+    <div class="glass-card p-6 gsap-card">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-4">
+          <span class="text-4xl">${e.icon}</span>
+          <div>
+            <h3 class="text-xl font-semibold text-white mb-1">${esc(e.name)}</h3>
+            <p class="text-muted text-xs font-mono">${esc(e.sub || '')}</p>
+          </div>
+        </div>
+        ${e.isNew ? '<span class="badge" style="background:rgba(52,211,153,.15);color:#34d399;font-size:11px;padding:4px 10px;border-radius:999px;font-weight:600">NOVO</span>' : ''}
       </div>
-      ${e.isNew ? '<span class="badge" style="background:rgba(52,211,153,.12);color:#34d399">novo</span>' : ''}
-    </div>
-    <p class="text-muted text-sm mb-4">${esc(e.desc || 'Experimento do laboratório.')}</p>
-    <a href="${encodeURI(e.file)}" target="_blank" class="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium">
-      <i class="fas fa-external-link-alt"></i> Abrir</a>
-  </div>`;
+      <p class="text-muted text-sm mb-6 leading-relaxed">${esc(e.desc || 'Experimento do laboratório.')}</p>
+      <a href="${encodeURI(e.file)}" target="_blank" class="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-all text-sm font-medium group">
+        <i class="fas fa-external-link-alt group-hover:translate-x-1 transition-transform"></i> Abrir Experimento
+      </a>
+    </div>`;
 }
+
 let items = Object.entries(known).map(([file, m]) => ({ file, ...m }));
 const grid = document.getElementById('grid'), status = document.getElementById('sync-status');
+
 function render() {
   items.sort((a, b) => (b.ts || 0) - (a.ts || 0) || a.name.localeCompare(b.name));
   grid.innerHTML = items.map(card).join('');
+  
+  // Animate cards on render
+  gsap.fromTo('.gsap-card', 
+    { opacity: 0, y: 40 },
+    { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out' }
+  );
 }
+
 async function lastCommit(file) {
   try {
     const r = await fetch(`https://api.github.com/repos/${username}/${repo}/commits?path=${encodeURIComponent(file)}&per_page=1`);
@@ -142,6 +325,7 @@ async function lastCommit(file) {
     return Array.isArray(c) && c.length ? new Date(c[0].commit.author.date) : null;
   } catch { return null; }
 }
+
 async function sync() {
   try {
     const r = await fetch(`https://api.github.com/repos/${username}/${repo}/contents`);
@@ -154,10 +338,27 @@ async function sync() {
       if (d) { e.ts = d.getTime(); e.date = d.toLocaleDateString('pt-BR'); e.isNew = Date.now() - e.ts < 3 * 864e5; }
     }));
     render();
-    status.textContent = `${items.length} projetos · lista sincronizada com o GitHub`;
-  } catch (err) { status.textContent = 'Não consegui sincronizar com o GitHub agora; mostrando a lista salva.'; }
+    status.textContent = `${items.length} projetos · sincronizado com o GitHub`;
+  } catch (err) { 
+    status.textContent = 'Lista salva localmente'; 
+    render();
+  }
 }
-render(); sync();
+
+// GSAP ScrollTrigger animations
+gsap.registerPlugin(ScrollTrigger);
+
+gsap.utils.toArray('.gsap-fade-up').forEach(el => {
+  gsap.fromTo(el, 
+    { opacity: 0, y: 30 },
+    { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out',
+      scrollTrigger: { trigger: el, start: 'top 85%' }
+    }
+  );
+});
+
+render();
+sync();
 </script>
 </body>
 </html>
