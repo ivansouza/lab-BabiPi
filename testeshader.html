@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cubo Girando no Espaço — lab-BabiPi</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  overflow: hidden;
+}
+canvas { display: block; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<script type="module">
+import * as THREE from 'three';
+
+// Cena, Câmera, Renderizador
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+camera.position.z = 500;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Luzes
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+const pointLight1 = new THREE.PointLight(0x38bdf8, 3, 1500, 0);
+pointLight1.position.set(300, 300, 300);
+scene.add(pointLight1);
+const pointLight2 = new THREE.PointLight(0x8b5cf6, 3, 1500, 0);
+pointLight2.position.set(-300, -300, 300);
+scene.add(pointLight2);
+
+// Cubo
+const geometry = new THREE.BoxGeometry(100, 100, 100);
+const material = new THREE.MeshPhongMaterial({
+  color: 0x38bdf8,
+  emissive: 0x38bdf8,
+  emissiveIntensity: 0.4,
+  shininess: 150
+});
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+
+// Animação
+function animate() {
+  requestAnimationFrame(animate);
+
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// Responsivo
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+
+</body>
+</html>
