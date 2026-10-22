@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shader Nuclear — lab-BabiPi</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  overflow: hidden;
+}
+canvas { display: block; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<script type="module">
+import * as THREE from 'three';
+
+// Cena, Câmera, Renderizador
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.z = 1;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Geometria full screen
+const geometry = new THREE.PlaneGeometry(2, 2);
+
+// Fragment shader
+const fragmentShader = `
+  precision highp float;
+  
+  uniform float uTime;
+  uniform vec2 uResolution;
+  
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uResolution.xy;
+    uv = uv * 2.0 - 1.0;
+    
+    vec3 c = vec3(0.0);
+    vec2 p = (2.0 * uv) / uResolution.y * 35.0;
+    
+    // Mapeia o tempo e as coordenadas para criar o efeito de onda
+    float t = uTime * 0.1;
+    float f4 = 11.0;
+    float f3 = 33.0;
+    float f2 = sin(t + f4 * 0.001);
+    
+    // Aplica o mapeamento de cores
+    c += cos(p + f2);
+    
+    // Aplica o tanh para suavizar a intensidade
+    c = tanh((0.1 + c.x * c.x) * 0.1 * uv.x * c.y / (0.1 + abs(c.y)));
+    
+    gl_FragColor = vec4(c, 1.0);
+  }
+`;
+
+// Vertex shader
+const vertexShader = `
+  precision highp float;
+  
+  attribute vec3 position;
+  varying vec2 vUv;
+  
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position, 1.0);
+  }
+`;
+
+// Material e Mesh
+const material = new THREE.ShaderMaterial({
+  fragmentShader,
+  vertexShader,
+  uniforms: {
+    uTime: { value: 0.0 },
+    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+  }
+});
+
+const mesh = new THREE.Mesh(geometry, material);
+scene.add(mesh);
+
+// Animação
+function animate() {
+  requestAnimationFrame(animate);
+  material.uniforms.uTime.value += 0.01;
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// Responsivo
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+});
+</script>
+
+</body>
+</html>
