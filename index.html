@@ -274,6 +274,7 @@ const known = {
   'campo-minado3.html': { icon: 'fa-bomb', name: 'Campo Minado 3', sub: 'Jogo + IA (LFM2 WASM)', desc: 'Campo Minado com IA LFM2-350M em WASM no navegador, WebGPU ou fallback CPU.' },
   'lista-compras.html': { icon: 'fa-shopping-cart', name: 'Lista de Compras', sub: 'App web responsivo', desc: 'Lista de compras interativa com adicionar, editar, excluir e marcar itens. Design otimizado para celular.' },
   'shader.html': { icon: 'fa-star', name: 'Shader 3D', sub: 'Three.js', desc: 'Experimento visual em 3D com cubos animados e iluminação, feito com Three.js.' },
+  'nuclear-shader.html': { icon: 'fa-star', name: 'Nuclear Shader', sub: 'WebGL2 / GLSL', desc: 'Experimento visual nuclear em 3D com partículas radioativas e shaders WebGL2.' },
   'plasma-vortex.html': { icon: 'fa-sync', name: 'Plasma Vortex', sub: 'WebGL2 / GLSL', desc: 'Visualização cinematográfica de plasma usando shaders WebGL2 com efeito vortex animado.' },
   'plasma-vortex-novo.html': { icon: 'fa-sync', name: 'Plasma Vortex Novo', sub: 'WebGL2 / GLSL', desc: 'Versão aprimorada do Plasma Vortex com renderização otimizada.' },
 };
@@ -335,16 +336,22 @@ async function sync() {
     const files = (await r.json()).filter(i => i.type === 'file' && /\.html$/i.test(i.name) && !ignore.includes(i.name.toLowerCase())).map(i => i.name);
     items = items.filter(e => files.includes(e.file));
     for (const f of files) if (!items.some(e => e.file === f)) items.push({ file: f, name: pretty(f), sub: 'Adicionado automaticamente' });
+  } catch (err) {
+    status.textContent = 'Erro ao sincronizar com o GitHub';
+    return;
+  }
+  
+  try {
     await Promise.all(items.map(async e => {
       const d = await lastCommit(e.file);
       if (d) { e.ts = d.getTime(); e.date = d.toLocaleDateString('pt-BR'); e.isNew = Date.now() - e.ts < 3 * 864e5; }
     }));
-    render();
-    status.textContent = `${items.length} projetos · sincronizado com o GitHub`;
-  } catch (err) { 
-    status.textContent = 'Lista salva localmente'; 
-    render();
+  } catch (err) {
+    // ignore
   }
+  
+  render();
+  status.textContent = `${items.length} projetos · sincronizado com o GitHub`;
 }
 
 // GSAP ScrollTrigger animations
