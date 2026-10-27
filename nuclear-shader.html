@@ -58,10 +58,10 @@ const fragmentShader = `
     float f2 = sin(t + f4 * 0.001);
     
     // Aplica o mapeamento de cores
-    c += cos(p + f2);
+    c += vec3(cos(p + f2));
     
     // Aplica o tanh para suavizar a intensidade
-    c = tanh((0.1 + c.x * c.x) * 0.1 * uv.x * c.y / (0.1 + abs(c.y)));
+    c = vec3(tanh((0.1 + c.x * c.x) * 0.1 * uv.x * c.y / (0.1 + abs(c.y))));
     
     gl_FragColor = vec4(c, 1.0);
   }
@@ -71,11 +71,10 @@ const fragmentShader = `
 const vertexShader = `
   precision highp float;
   
-  attribute vec3 position;
+  in vec3 position;
   varying vec2 vUv;
   
   void main() {
-    vUv = uv;
     gl_Position = vec4(position, 1.0);
   }
 `;
